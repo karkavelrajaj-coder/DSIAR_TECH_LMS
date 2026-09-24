@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, getToken, setToken } from "../api/client";
 
 const AuthContext = createContext(null);
 
@@ -8,22 +8,36 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // No stored token -> definitely logged out, skip the network round trip.
+    if (!getToken()) {
+      setLoading(false);
+      return;
+    }
     api
       .get("/auth/me")
       .then((res) => setUser(res.data))
-      .catch(() => setUser(null))
+      .catch(() => {
+        setToken(null);
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   async function login(email, password) {
     const res = await api.post("/auth/login", { email, password });
-    setUser(res.data);
-    return res.data;
+    setToken(res.data.access_token);
+    const { access_token, ...userFields } = res.data;
+    setUser(userFields);
+    return userFields;
   }
 
   async function logout() {
-    await api.post("/auth/logout");
-    setUser(null);
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      setToken(null);
+      setUser(null);
+    }
   }
 
   return (

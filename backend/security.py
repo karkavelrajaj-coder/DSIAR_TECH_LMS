@@ -18,7 +18,7 @@ import bcrypt
 import jwt
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import Cookie, Depends, HTTPException, Response, status
+from fastapi import Cookie, Depends, Header, HTTPException, Response, status
 
 from config import settings
 from db import users_col
@@ -118,11 +118,24 @@ def authenticate(email: str, password: str) -> dict:
 
 # --- FastAPI dependencies (replace require_login / require_role) -----------
 
-def get_current_user(dsiar_session: str | None = Cookie(default=None)) -> dict:
-    if not dsiar_session:
+def get_current_user(
+    dsiar_session: str | None = Cookie(default=None),
+    authorization: str | None = Header(default=None),
+) -> dict:
+    # Prefer the Authorization header (what the deployed frontend sends —
+    # works across different onrender.com subdomains where third-party
+    # cookies get blocked). Fall back to the cookie for local dev, where
+    # the Vite proxy makes frontend and backend same-origin.
+    token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+    elif dsiar_session:
+        token = dsiar_session
+
+    if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated.")
     try:
-        payload = decode_access_token(dsiar_session)
+        payload = decode_access_token(token)
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired or invalid.")
 
