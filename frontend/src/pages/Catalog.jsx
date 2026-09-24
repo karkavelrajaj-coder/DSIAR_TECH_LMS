@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, staticUrl } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 export default function Catalog() {
@@ -49,7 +49,7 @@ export default function Catalog() {
                   src={
                     c.thumbnail_url.startsWith("http")
                       ? c.thumbnail_url
-                      : `/api/static/${c.thumbnail_url.replace(/^assets\//, "")}`
+                      : staticUrl(c.thumbnail_url)
                   }
                   alt={c.title}
                   className="h-full w-full object-cover"

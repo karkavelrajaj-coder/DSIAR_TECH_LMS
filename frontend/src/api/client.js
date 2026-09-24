@@ -15,6 +15,18 @@ export function setToken(token) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+// Builds an absolute URL to a backend-served static asset (course
+// thumbnails, etc). baseURL already includes "/api" (e.g.
+// "https://dsiar-lms-backend.onrender.com/api" in prod, or just "/api" in
+// dev behind the Vite proxy) — a plain "/api/static/..." path would
+// resolve against the FRONTEND's own origin in production since frontend
+// and backend are different domains, so this always builds it off the
+// same base the API client itself uses.
+export function staticUrl(relativePath) {
+  const cleaned = relativePath.replace(/^assets\//, "");
+  return `${baseURL}/static/${cleaned.split("/").map(encodeURIComponent).join("/")}`;
+}
+
 export const api = axios.create({
   baseURL,
   withCredentials: true, // also sends the cookie, useful in local dev (same-origin via the Vite proxy)
