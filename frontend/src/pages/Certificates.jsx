@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { Button, Card, EmptyState, LoadingScreen, PageHeader } from "../components/ui";
 
 export default function Certificates() {
   const [certs, setCerts] = useState([]);
@@ -33,57 +34,58 @@ export default function Certificates() {
     return () => objectUrls.forEach((u) => URL.revokeObjectURL(u));
   }, []);
 
-  if (loading) return <div className="text-gray-500">Loading…</div>;
-
-  if (certs.length === 0) {
-    return (
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">🏆 My certificates</h1>
-        <div className="mt-6 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          No certificates yet. A certificate is issued automatically once
-          you've completed every lesson in a course AND your assignment has
-          been approved.
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen label="Loading certificates…" />;
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-gray-900">🏆 My certificates</h1>
-      <div className="mt-6 space-y-6">
-        {certs.map((cert) => (
-          <div key={cert.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">🎓 {cert.course_title}</h2>
-            <div className="text-xs text-gray-500">
-              Certificate ID: {cert.cert_id} · Issued{" "}
-              {new Date(cert.issued_at).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </div>
-            {images[cert.cert_id] ? (
-              <>
-                <img
-                  src={images[cert.cert_id]}
-                  alt={`Certificate for ${cert.course_title}`}
-                  className="mt-3 w-full rounded-lg border"
-                />
-                <a
-                  href={images[cert.cert_id]}
-                  download={`dsiar-certificate-${cert.course_title.replace(/\s+/g, "_")}.png`}
-                  className="mt-3 inline-block rounded-lg bg-purple-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-purple-700"
-                >
-                  Download certificate (PNG)
-                </a>
-              </>
-            ) : (
-              <div className="mt-3 text-sm text-gray-400">Loading certificate image…</div>
-            )}
-          </div>
-        ))}
-      </div>
+      <PageHeader eyebrow="Achievements" title="My certificates" description="Earned automatically once a course and its assignment are approved." />
+
+      {certs.length === 0 ? (
+        <div className="mt-8">
+          <EmptyState
+            icon="🏆"
+            title="No certificates yet"
+            description="A certificate is issued automatically once you've completed every lesson in a course AND your assignment has been approved."
+          />
+        </div>
+      ) : (
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {certs.map((cert) => (
+            <Card key={cert.id}>
+              <h2 className="font-display text-base font-bold text-ink-900">🎓 {cert.course_title}</h2>
+              <div className="mt-1 text-xs text-ink-500">
+                Certificate ID: {cert.cert_id} · Issued{" "}
+                {new Date(cert.issued_at).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </div>
+              {images[cert.cert_id] ? (
+                <>
+                  <img
+                    src={images[cert.cert_id]}
+                    alt={`Certificate for ${cert.course_title}`}
+                    className="mt-4 w-full rounded-xl border border-ink-200"
+                  />
+                  <Button
+                    as="a"
+                    href={images[cert.cert_id]}
+                    download={`dsiar-certificate-${cert.course_title.replace(/\s+/g, "_")}.png`}
+                    className="mt-4"
+                  >
+                    ⬇ Download certificate (PNG)
+                  </Button>
+                </>
+              ) : (
+                <div className="mt-4 flex aspect-video items-center justify-center rounded-xl border border-dashed border-ink-200 text-sm text-ink-400">
+                  Loading certificate image…
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
