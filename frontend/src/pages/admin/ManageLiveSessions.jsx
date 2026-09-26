@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { useConfirm } from "../../context/ConfirmContext";
 import {
   Badge,
   Button,
@@ -38,6 +39,7 @@ function isoToLocalDateTime(iso, tz) {
 }
 
 export default function ManageLiveSessions() {
+  const confirm = useConfirm();
   const [courses, setCourses] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [timezones, setTimezones] = useState([]);
@@ -73,9 +75,14 @@ export default function ManageLiveSessions() {
     load();
   }
 
-  async function deleteSession(id) {
-    if (!confirm("Delete this session?")) return;
-    await api.delete(`/live-sessions/${id}`);
+  async function deleteSession(session) {
+    const ok = await confirm({
+      title: "Delete this session?",
+      message: `"${session.title}" will be permanently removed from the schedule. Students will no longer see it.`,
+      confirmLabel: "Delete session",
+    });
+    if (!ok) return;
+    await api.delete(`/live-sessions/${session.id}`);
     load();
   }
 
@@ -89,10 +96,16 @@ export default function ManageLiveSessions() {
     }
   }
 
-  async function endSession(id) {
-    await api.post(`/live-sessions/${id}/end`);
+  async function endSession(session) {
+    const ok = await confirm({
+      title: "End this session for everyone?",
+      message: `"${session.title}" will be closed immediately and every participant currently on the call will be disconnected. This can't be undone.`,
+      confirmLabel: "End session",
+    });
+    if (!ok) return;
+    await api.post(`/live-sessions/${session.id}/end`);
     const next = { ...hostView };
-    delete next[id];
+    delete next[session.id];
     setHostView(next);
     load();
   }
@@ -135,7 +148,7 @@ export default function ManageLiveSessions() {
                   <IconButton onClick={() => setModal(s)} aria-label="Edit session">
                     ✎
                   </IconButton>
-                  <IconButton onClick={() => deleteSession(s.id)} className="hover:bg-danger-50 hover:text-danger-600" aria-label="Delete session">
+                  <IconButton onClick={() => deleteSession(s)} className="hover:bg-danger-50 hover:text-danger-600" aria-label="Delete session">
                     🗑
                   </IconButton>
                 </div>
@@ -173,7 +186,7 @@ export default function ManageLiveSessions() {
                     >
                       Leave (keep session open)
                     </Button>
-                    <Button variant="dangerSolid" onClick={() => endSession(s.id)}>
+                    <Button variant="dangerSolid" onClick={() => endSession(s)}>
                       ● End session for everyone
                     </Button>
                   </div>
