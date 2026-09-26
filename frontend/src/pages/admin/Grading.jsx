@@ -13,12 +13,14 @@ import {
   Select,
   Textarea,
 } from "../../components/ui";
+import { useConfirm } from "../../context/ConfirmContext";
 
 const emptyAssignment = { course_id: "", title: "", description: "", due_date: "" };
 
 const statusVariant = { pending: "warning", approved: "success", rejected: "danger" };
 
 export default function Grading() {
+  const confirm = useConfirm();
   const [courses, setCourses] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [submissionsByAssignment, setSubmissionsByAssignment] = useState({});
@@ -58,9 +60,14 @@ export default function Grading() {
     load();
   }
 
-  async function deleteAssignment(id) {
-    if (!confirm("Delete this assignment and all its submissions?")) return;
-    await api.delete(`/assignments/${id}`);
+  async function deleteAssignment(assignment) {
+    const ok = await confirm({
+      title: "Delete this assignment?",
+      message: `"${assignment.title}" and every student submission against it will be permanently removed.`,
+      confirmLabel: "Delete assignment",
+    });
+    if (!ok) return;
+    await api.delete(`/assignments/${assignment.id}`);
     load();
   }
 
@@ -70,9 +77,21 @@ export default function Grading() {
 
   async function saveGrade(assignmentId, sub) {
     const draft = drafts[sub.id] || {};
+    const status = draft.status ?? sub.status;
+    const grade = draft.grade ?? sub.grade ?? 0;
+    const ok = await confirm({
+      title: "Save this grade?",
+      message:
+        status === "approved"
+          ? `${sub.student_name} will be marked "approved" with a grade of ${grade}. If they've also finished every lesson, this issues their certificate immediately.`
+          : `${sub.student_name}'s submission will be marked "${status}" with a grade of ${grade}, visible to them right away.`,
+      confirmLabel: "Save grade",
+      variant: "brand",
+    });
+    if (!ok) return;
     await api.patch(`/submissions/${sub.id}`, {
-      grade: draft.grade ?? sub.grade ?? 0,
-      status: draft.status ?? sub.status,
+      grade,
+      status,
       feedback: draft.feedback ?? sub.feedback ?? "",
     });
     loadSubmissions(assignmentId);
@@ -107,7 +126,7 @@ export default function Grading() {
                 <IconButton onClick={() => setAssignmentModal(a)} aria-label="Edit assignment">
                   ✎
                 </IconButton>
-                <IconButton onClick={() => deleteAssignment(a.id)} className="hover:bg-danger-50 hover:text-danger-600" aria-label="Delete assignment">
+                <IconButton onClick={() => deleteAssignment(a)} className="hover:bg-danger-50 hover:text-danger-600" aria-label="Delete assignment">
                   🗑
                 </IconButton>
               </div>
