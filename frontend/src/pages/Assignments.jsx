@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Badge, Button, Card, EmptyState, LoadingScreen, PageHeader, Textarea } from "../components/ui";
+import { useConfirm } from "../context/ConfirmContext";
 
 const statusBadge = {
   approved: { variant: "success", label: "✓ Approved" },
@@ -9,6 +10,7 @@ const statusBadge = {
 };
 
 export default function Assignments() {
+  const confirm = useConfirm();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [drafts, setDrafts] = useState({});
@@ -27,6 +29,13 @@ export default function Assignments() {
   async function submit(assignmentId) {
     const text = (drafts[assignmentId] || "").trim();
     if (!text) return;
+    const ok = await confirm({
+      title: "Submit this assignment?",
+      message: "Once submitted you won't be able to edit it — your instructor will review it and it's what gets graded.",
+      confirmLabel: "Submit assignment",
+      variant: "brand",
+    });
+    if (!ok) return;
     await api.post(`/assignments/${assignmentId}/submit`, { link_or_text: text });
     load();
   }
