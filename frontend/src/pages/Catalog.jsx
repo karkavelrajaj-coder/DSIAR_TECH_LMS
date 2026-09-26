@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { api, staticUrl } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { Badge, Button, Card, EmptyState, Input, LoadingScreen, PageHeader } from "../components/ui";
 
 export default function Catalog() {
   const { user } = useAuth();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("All");
 
   async function load() {
     setLoading(true);
@@ -23,63 +27,102 @@ export default function Catalog() {
     load();
   }
 
-  if (loading) return <div className="text-gray-500">Loading courses…</div>;
+  const categories = useMemo(() => {
+    const set = new Set(courses.map((c) => c.category).filter(Boolean));
+    return ["All", ...set];
+  }, [courses]);
+
+  const filtered = courses.filter((c) => {
+    const matchesCategory = category === "All" || c.category === category;
+    const matchesQuery =
+      !query ||
+      c.title.toLowerCase().includes(query.toLowerCase()) ||
+      c.description?.toLowerCase().includes(query.toLowerCase());
+    return matchesCategory && matchesQuery;
+  });
+
+  if (loading) return <LoadingScreen label="Loading catalog…" />;
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-gray-900">📚 Course catalog</h1>
-      <p className="mt-1 text-sm text-gray-500">
-        Practical, hands-on courses in AI, ML, cybersecurity, and emerging technologies.
-      </p>
+      <PageHeader
+        eyebrow="Catalog"
+        title="Course catalog"
+        description="Practical, hands-on courses in AI, ML, cybersecurity, and emerging technologies."
+      />
 
-      {courses.length === 0 && (
-        <div className="mt-6 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          No courses published yet — check back soon.
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search courses…"
+          className="sm:max-w-xs"
+        />
+        <div className="flex flex-wrap gap-2">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategory(cat)}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                category === cat ? "bg-brand-600 text-white" : "bg-white text-ink-600 border border-ink-200 hover:bg-ink-50"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="mt-8">
+          <EmptyState
+            icon="🔍"
+            title={courses.length === 0 ? "No courses published yet" : "No courses match your search"}
+            description={courses.length === 0 ? "Check back soon." : "Try a different keyword or category."}
+          />
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {courses.map((c) => (
-          <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            {c.thumbnail_url && (
-              <div className="mb-3 aspect-video overflow-hidden rounded-lg bg-gray-100">
-                {/* thumbnail_url may be a relative asset path served by the
-                    backend at /assets/... , or a full URL */}
+      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {filtered.map((c) => (
+          <Card key={c.id} padded={false} className="flex flex-col overflow-hidden transition hover:shadow-card-lg">
+            <div className="aspect-video w-full overflow-hidden bg-ink-100">
+              {c.thumbnail_url ? (
                 <img
-                  src={
-                    c.thumbnail_url.startsWith("http")
-                      ? c.thumbnail_url
-                      : staticUrl(c.thumbnail_url)
-                  }
+                  src={c.thumbnail_url.startsWith("http") ? c.thumbnail_url : staticUrl(c.thumbnail_url)}
                   alt={c.title}
                   className="h-full w-full object-cover"
                   onError={(e) => (e.currentTarget.style.display = "none")}
                 />
-              </div>
-            )}
-            <h2 className="text-lg font-semibold text-gray-900">{c.title}</h2>
-            <div className="text-xs text-gray-500">{c.category}</div>
-            <p className="mt-2 line-clamp-3 text-sm text-gray-600">{c.description}</p>
-
-            <div className="mt-4">
-              {c.is_enrolled ? (
-                <span className="inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-                  ✅ Enrolled
-                </span>
-              ) : user.role === "student" ? (
-                <span className="text-xs text-gray-500">
-                  🔒 Not enrolled — contact D'siar Tech to purchase access.
-                </span>
               ) : (
-                <button
-                  onClick={() => handlePreviewEnroll(c.id)}
-                  className="w-full rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100"
-                >
-                  Enroll (preview)
-                </button>
+                <div className="flex h-full w-full items-center justify-center text-4xl">📘</div>
               )}
             </div>
-          </div>
+            <div className="flex flex-1 flex-col p-5">
+              <div className="flex items-center gap-2">
+                {c.category && <Badge variant="brand">{c.category}</Badge>}
+                {c.is_free && <Badge variant="success">Free</Badge>}
+              </div>
+              <h2 className="mt-2.5 font-display text-base font-bold text-ink-900">{c.title}</h2>
+              <p className="mt-1.5 line-clamp-3 flex-1 text-sm text-ink-500">{c.description}</p>
+
+              <div className="mt-4">
+                {c.is_enrolled ? (
+                  <Button as={Link} to={`/course/${c.id}`} variant="success" className="w-full">
+                    ▶ Continue learning
+                  </Button>
+                ) : user.role === "student" ? (
+                  <div className="rounded-lg bg-warning-50 px-3 py-2 text-xs font-medium text-warning-700">
+                    🔒 Not enrolled — contact D'siar Tech to purchase access.
+                  </div>
+                ) : (
+                  <Button variant="secondary" className="w-full" onClick={() => handlePreviewEnroll(c.id)}>
+                    Enroll (preview)
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
         ))}
       </div>
     </div>
