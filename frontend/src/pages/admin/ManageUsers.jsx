@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { Badge, Button, Card, Field, Input, PageHeader, Select } from "../../components/ui";
+import { useConfirm } from "../../context/ConfirmContext";
 
 const roleVariant = { admin: "brand", instructor: "success", student: "neutral" };
 
 export default function ManageUsers() {
+  const confirm = useConfirm();
   const [users, setUsers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
@@ -56,13 +58,27 @@ export default function ManageUsers() {
     }
   }
 
-  async function removeEnrollment(id) {
-    await api.delete(`/enrollments/${id}`);
+  async function removeEnrollment(enrollment) {
+    const ok = await confirm({
+      title: "Remove this enrollment?",
+      message: `${enrollment.student_name} will immediately lose access to "${enrollment.course_title}", including its lessons, assignments, and certificate eligibility.`,
+      confirmLabel: "Remove enrollment",
+    });
+    if (!ok) return;
+    await api.delete(`/enrollments/${enrollment.id}`);
     load();
   }
 
-  async function updateRole(userId, role) {
-    await api.patch(`/users/${userId}/role`, { role });
+  async function updateRole(targetUser, role) {
+    if (role === targetUser.role) return;
+    const ok = await confirm({
+      title: "Change this user's role?",
+      message: `${targetUser.name} will change from "${targetUser.role}" to "${role}" and their permissions across the whole platform will change immediately.`,
+      confirmLabel: `Change to ${role}`,
+      variant: "brand",
+    });
+    if (!ok) return;
+    await api.patch(`/users/${targetUser.id}/role`, { role });
     load();
   }
 
@@ -145,7 +161,7 @@ export default function ManageUsers() {
                         <div className="text-xs text-ink-400">{e.course_title}</div>
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <button onClick={() => removeEnrollment(e.id)} className="text-xs font-medium text-danger-600 hover:underline">
+                        <button onClick={() => removeEnrollment(e)} className="text-xs font-medium text-danger-600 hover:underline">
                           Remove
                         </button>
                       </td>
@@ -182,8 +198,8 @@ export default function ManageUsers() {
                   </td>
                   <td className="px-5 py-2.5">
                     <Select
-                      defaultValue={u.role}
-                      onChange={(e) => updateRole(u.id, e.target.value)}
+                      value={u.role}
+                      onChange={(e) => updateRole(u, e.target.value)}
                       className="w-auto py-1 text-xs"
                     >
                       <option value="student">student</option>
