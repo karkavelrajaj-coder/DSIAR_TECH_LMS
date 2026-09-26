@@ -53,8 +53,19 @@ def create_enrollment(body: CreateEnrollmentRequest, user: dict = Depends(requir
 
 @router.post("/preview/{course_id}")
 def self_enroll_preview(course_id: str, user: dict = Depends(require_roles("admin", "instructor"))):
-    """Admins/instructors can self-enroll to preview course content, same
-    as the 'Enroll (preview)' button in the old catalog.py."""
+    """Admins can self-enroll to preview ANY course's content, same as the
+    'Enroll (preview)' button in the old catalog.py. Instructors are NOT
+    admins, though: they may only preview courses assigned to them (which
+    they already have automatic access to via course_detail's
+    _has_course_access — this endpoint mainly exists for admin's benefit
+    now, but stays open to instructors for their own courses too)."""
+    if user["role"] == "instructor":
+        course = courses_col().find_one({"_id": ObjectId(course_id)})
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found.")
+        if course.get("instructor_id") != user["id"]:
+            raise HTTPException(status_code=403, detail="You can only access courses assigned to you.")
+
     existing = enrollments_col().find_one({"user_id": user["id"], "course_id": course_id})
     if existing:
         return enrollment_out(existing)
