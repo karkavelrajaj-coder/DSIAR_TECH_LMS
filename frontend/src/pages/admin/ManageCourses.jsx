@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
+import { useConfirm } from "../../context/ConfirmContext";
 import {
   Badge,
   Button,
@@ -20,6 +21,7 @@ const emptyLesson = { title: "", youtube_id: "", ppt_link: "", colab_link: "", d
 
 export default function ManageCourses() {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [courses, setCourses] = useState([]);
   const [instructors, setInstructors] = useState([]);
   const [expanded, setExpanded] = useState(null);
@@ -71,9 +73,14 @@ export default function ManageCourses() {
     load();
   }
 
-  async function deleteCourse(id) {
-    if (!confirm("Delete this course and all its modules/lessons?")) return;
-    await api.delete(`/courses/${id}`);
+  async function deleteCourse(course) {
+    const ok = await confirm({
+      title: "Delete this course?",
+      message: `"${course.title}" and every module, lesson, enrollment, assignment, and certificate tied to it will be permanently removed. This can't be undone.`,
+      confirmLabel: "Delete course",
+    });
+    if (!ok) return;
+    await api.delete(`/courses/${course.id}`);
     load();
   }
 
@@ -88,9 +95,14 @@ export default function ManageCourses() {
     loadModules(courseId);
   }
 
-  async function deleteModule(courseId, moduleId) {
-    if (!confirm("Delete this module and all its lessons?")) return;
-    await api.delete(`/modules/${moduleId}`);
+  async function deleteModule(courseId, module) {
+    const ok = await confirm({
+      title: "Delete this module?",
+      message: `"${module.title}" and all ${module.lessons.length} lesson${module.lessons.length === 1 ? "" : "s"} in it will be permanently removed.`,
+      confirmLabel: "Delete module",
+    });
+    if (!ok) return;
+    await api.delete(`/modules/${module.id}`);
     loadModules(courseId);
   }
 
@@ -105,9 +117,14 @@ export default function ManageCourses() {
     loadModules(courseId);
   }
 
-  async function deleteLesson(courseId, lessonId) {
-    if (!confirm("Delete this lesson?")) return;
-    await api.delete(`/lessons/${lessonId}`);
+  async function deleteLesson(courseId, lesson) {
+    const ok = await confirm({
+      title: "Delete this lesson?",
+      message: `"${lesson.title}" and its video/resource links will be permanently removed. Any student progress on it will also be lost.`,
+      confirmLabel: "Delete lesson",
+    });
+    if (!ok) return;
+    await api.delete(`/lessons/${lesson.id}`);
     loadModules(courseId);
   }
 
@@ -149,7 +166,7 @@ export default function ManageCourses() {
                 <IconButton onClick={() => setCourseModal(c)} aria-label="Edit course">
                   ✎
                 </IconButton>
-                <IconButton onClick={() => deleteCourse(c.id)} className="hover:bg-danger-50 hover:text-danger-600" aria-label="Delete course">
+                <IconButton onClick={() => deleteCourse(c)} className="hover:bg-danger-50 hover:text-danger-600" aria-label="Delete course">
                   🗑
                 </IconButton>
               </div>
@@ -167,10 +184,10 @@ export default function ManageCourses() {
                       key={m.id}
                       module={m}
                       onRename={(title) => renameModule(c.id, m.id, title)}
-                      onDelete={() => deleteModule(c.id, m.id)}
+                      onDelete={() => deleteModule(c.id, m)}
                       onAddLesson={(lesson) => addLesson(c.id, m.id, lesson)}
                       onUpdateLesson={(lessonId, lesson) => updateLesson(c.id, lessonId, lesson)}
-                      onDeleteLesson={(lessonId) => deleteLesson(c.id, lessonId)}
+                      onDeleteLesson={(lesson) => deleteLesson(c.id, lesson)}
                     />
                   ))}
                   {(modulesByCourse[c.id] || []).length === 0 && (
@@ -338,7 +355,7 @@ function ModuleCard({ module: m, onRename, onDelete, onAddLesson, onUpdateLesson
       {m.lessons.length > 0 && (
         <ul className="divide-y divide-ink-100 border-t border-ink-100">
           {m.lessons.map((l) => (
-            <LessonRow key={l.id} lesson={l} onUpdate={(data) => onUpdateLesson(l.id, data)} onDelete={() => onDeleteLesson(l.id)} />
+            <LessonRow key={l.id} lesson={l} onUpdate={(data) => onUpdateLesson(l.id, data)} onDelete={() => onDeleteLesson(l)} />
           ))}
         </ul>
       )}
