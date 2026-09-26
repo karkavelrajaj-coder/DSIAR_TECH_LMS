@@ -58,6 +58,20 @@ def _assert_can_manage_course(user: dict, course: dict) -> None:
     raise HTTPException(status_code=403, detail="You don't manage this course.")
 
 
+def _has_course_access(user: dict, course: dict, is_enrolled: bool) -> bool:
+    """Who may open a course's actual content (as opposed to just seeing it
+    listed in the catalog): admins always; an instructor for courses they're
+    assigned to (automatically, no separate enrollment needed); anyone else
+    only if actually enrolled. An instructor is NOT granted access to a
+    colleague's course just by being an instructor — that would let them
+    browse content the way only admins should be able to."""
+    if user["role"] == "admin":
+        return True
+    if user["role"] == "instructor" and course.get("instructor_id") == user["id"]:
+        return True
+    return is_enrolled
+
+
 # --- Catalog (any logged-in role) -------------------------------------------
 
 @router.get("/courses")
@@ -67,7 +81,12 @@ def catalog(user: dict = Depends(get_current_user)):
     out = []
     for c in courses:
         item = course_out(c)
-        item["is_enrolled"] = str(c["_id"]) in my_enrollments
+        actually_enrolled = str(c["_id"]) in my_enrollments
+        # An instructor sees their own assigned course as accessible right
+        # away — no separate "enroll" step, same as an admin. Anyone else
+        # (students, and instructors on courses that aren't theirs) only
+        # sees it as accessible once an actual enrollment exists.
+        item["is_enrolled"] = _has_course_access(user, c, actually_enrolled)
         out.append(item)
     return out
 
@@ -102,9 +121,10 @@ def course_detail(course_id: str, user: dict = Depends(get_current_user)):
     """Full course content (modules + lessons + per-lesson completion),
     gated exactly like course_player.py: students must be enrolled."""
     course = _get_course_or_404(course_id)
-    is_enrolled = bool(enrollments_col().find_one({"user_id": user["id"], "course_id": course_id}))
-    if not is_enrolled and user["role"] == "student":
-        raise HTTPException(status_code=403, detail="Enroll in this course to access its content.")
+    actually_enrolled = bool(enrollments_col().find_one({"user_id": user["id"], "course_id": course_id}))
+    has_access = _has_course_access(user, course, actually_enrolled)
+    if not has_access:
+        raise HTTPException(status_code=403, detail="You don't have access to this course.")
 
     modules = list(modules_col().find({"course_id": course_id}).sort("order", 1))
     completed_lesson_ids = {
@@ -124,7 +144,7 @@ def course_detail(course_id: str, user: dict = Depends(get_current_user)):
         modules_out.append(mp)
 
     payload = course_out(course)
-    payload["is_enrolled"] = is_enrolled
+    payload["is_enrolled"] = has_access
     payload["modules"] = modules_out
     return payload
 
