@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { Badge, Button, Card, Field, Input, PageHeader, Select } from "../../components/ui";
+
+const roleVariant = { admin: "brand", instructor: "success", student: "neutral" };
 
 export default function ManageUsers() {
   const [users, setUsers] = useState([]);
@@ -67,139 +70,133 @@ export default function ManageUsers() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-gray-900">👥 Manage users</h1>
-      <p className="text-sm text-gray-500">
-        Only admins create accounts and enroll students. There's no public sign-up — this
-        keeps course access tied to confirmed payment.
-      </p>
+      <PageHeader
+        eyebrow="Access"
+        title="Manage users"
+        description="Only admins create accounts and enroll students — there's no public sign-up, which keeps course access tied to confirmed payment."
+      />
 
-      {error && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+      {error && <div className="mt-4 rounded-lg bg-danger-50 px-3.5 py-2.5 text-sm text-danger-700">{error}</div>}
 
-      <form onSubmit={createAccount} className="mt-6 space-y-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-gray-900">➕ Create a new account</h2>
-        <input
-          placeholder="Full name"
-          value={newAccount.name}
-          onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-        <input
-          placeholder="Email"
-          value={newAccount.email}
-          onChange={(e) => setNewAccount({ ...newAccount, email: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-        <input
-          type="password"
-          placeholder="Temporary password"
-          value={newAccount.password}
-          onChange={(e) => setNewAccount({ ...newAccount, password: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-        <select
-          value={newAccount.role}
-          onChange={(e) => setNewAccount({ ...newAccount, role: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="student">student</option>
-          <option value="instructor">instructor</option>
-          <option value="admin">admin</option>
-        </select>
-        <button type="submit" className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
-          Create account
-        </button>
-      </form>
+      <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Card as="form" onSubmit={createAccount} className="space-y-3">
+          <h2 className="font-display text-sm font-bold text-ink-900">➕ Create a new account</h2>
+          <Field label="Full name">
+            <Input value={newAccount.name} onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })} />
+          </Field>
+          <Field label="Email">
+            <Input value={newAccount.email} onChange={(e) => setNewAccount({ ...newAccount, email: e.target.value })} />
+          </Field>
+          <Field label="Temporary password">
+            <Input
+              type="password"
+              value={newAccount.password}
+              onChange={(e) => setNewAccount({ ...newAccount, password: e.target.value })}
+            />
+          </Field>
+          <Field label="Role">
+            <Select value={newAccount.role} onChange={(e) => setNewAccount({ ...newAccount, role: e.target.value })}>
+              <option value="student">student</option>
+              <option value="instructor">instructor</option>
+              <option value="admin">admin</option>
+            </Select>
+          </Field>
+          <Button type="submit" className="w-full">Create account</Button>
+        </Card>
 
-      <form onSubmit={enrollStudent} className="mt-6 space-y-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-gray-900">🎓 Enroll a student in a course</h2>
-        <select
-          value={enrollForm.user_id}
-          onChange={(e) => setEnrollForm({ ...enrollForm, user_id: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="">Select student</option>
-          {students.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} ({s.email})
-            </option>
-          ))}
-        </select>
-        <select
-          value={enrollForm.course_id}
-          onChange={(e) => setEnrollForm({ ...enrollForm, course_id: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="">Select course (they've paid for this)</option>
-          {courses.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.title}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
-          Enroll student
-        </button>
+        <Card as="form" onSubmit={enrollStudent} className="space-y-3">
+          <h2 className="font-display text-sm font-bold text-ink-900">🎓 Enroll a student in a course</h2>
+          <Field label="Student">
+            <Select value={enrollForm.user_id} onChange={(e) => setEnrollForm({ ...enrollForm, user_id: e.target.value })}>
+              <option value="">Select student</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.email})
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Course">
+            <Select value={enrollForm.course_id} onChange={(e) => setEnrollForm({ ...enrollForm, course_id: e.target.value })}>
+              <option value="">Select course (they've paid for this)</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button type="submit" className="w-full">Enroll student</Button>
 
-        <h3 className="pt-2 text-sm font-semibold text-gray-700">Current enrollments</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500">
-              <th className="py-1">Student</th>
-              <th>Course</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {enrollments.map((e) => (
-              <tr key={e.id} className="border-t border-gray-100">
-                <td className="py-1">
-                  {e.student_name} <span className="text-gray-400">({e.student_email})</span>
-                </td>
-                <td>{e.course_title}</td>
-                <td className="text-right">
-                  <button onClick={() => removeEnrollment(e.id)} className="text-xs text-red-600 hover:underline">
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </form>
-
-      <div className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-gray-900">All users</h2>
-        <table className="mt-3 w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500">
-              <th className="py-1">Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Change role</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-t border-gray-100">
-                <td className="py-1">{u.name}</td>
-                <td>{u.email}</td>
-                <td>{u.role}</td>
-                <td>
-                  <select
-                    defaultValue={u.role}
-                    onChange={(e) => updateRole(u.id, e.target.value)}
-                    className="rounded-lg border border-gray-300 px-2 py-1 text-xs"
-                  >
-                    <option value="student">student</option>
-                    <option value="instructor">instructor</option>
-                    <option value="admin">admin</option>
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          <div className="pt-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-500">Current enrollments</h3>
+            <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-ink-100">
+              <table className="w-full text-sm">
+                <tbody>
+                  {enrollments.length === 0 && (
+                    <tr>
+                      <td className="px-3 py-3 text-xs text-ink-400">No enrollments yet.</td>
+                    </tr>
+                  )}
+                  {enrollments.map((e) => (
+                    <tr key={e.id} className="border-t border-ink-100 first:border-0">
+                      <td className="px-3 py-2">
+                        <div className="text-ink-800">{e.student_name}</div>
+                        <div className="text-xs text-ink-400">{e.course_title}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button onClick={() => removeEnrollment(e.id)} className="text-xs font-medium text-danger-600 hover:underline">
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card>
       </div>
+
+      <Card className="mt-6" padded={false}>
+        <div className="p-5 pb-0">
+          <h2 className="font-display text-sm font-bold text-ink-900">All users</h2>
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-t border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+                <th className="px-5 py-2.5">Name</th>
+                <th className="px-5 py-2.5">Email</th>
+                <th className="px-5 py-2.5">Role</th>
+                <th className="px-5 py-2.5">Change role</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="border-t border-ink-100">
+                  <td className="px-5 py-2.5 font-medium text-ink-800">{u.name}</td>
+                  <td className="px-5 py-2.5 text-ink-500">{u.email}</td>
+                  <td className="px-5 py-2.5">
+                    <Badge variant={roleVariant[u.role] || "neutral"}>{u.role}</Badge>
+                  </td>
+                  <td className="px-5 py-2.5">
+                    <Select
+                      defaultValue={u.role}
+                      onChange={(e) => updateRole(u.id, e.target.value)}
+                      className="w-auto py-1 text-xs"
+                    >
+                      <option value="student">student</option>
+                      <option value="instructor">instructor</option>
+                      <option value="admin">admin</option>
+                    </Select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
