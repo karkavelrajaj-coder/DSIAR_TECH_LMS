@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api, staticUrl } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { Badge, Button, Card, EmptyState, Input, LoadingScreen, PageHeader } from "../components/ui";
+import { Badge, Button, Card, EmptyState, Input, LoadingScreen, PageHeader, RichText } from "../components/ui";
 
 export default function Catalog() {
   const { user } = useAuth();
@@ -104,7 +104,7 @@ export default function Catalog() {
                 {c.is_free && <Badge variant="success">Free</Badge>}
               </div>
               <h2 className="mt-2.5 font-display text-base font-bold text-ink-900">{c.title}</h2>
-              <p className="mt-1.5 line-clamp-3 flex-1 text-sm text-ink-500">{c.description}</p>
+              <RichText text={c.description} className="mt-1.5 line-clamp-3 flex-1 text-sm text-ink-500" />
 
               <div className="mt-4">
                 {c.is_enrolled ? (
