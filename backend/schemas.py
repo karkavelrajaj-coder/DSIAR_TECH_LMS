@@ -34,6 +34,10 @@ class UpdateRoleRequest(BaseModel):
     role: str
 
 
+class UpdateStatusRequest(BaseModel):
+    disabled: bool
+
+
 class SetTimezoneRequest(BaseModel):
     timezone: str
 

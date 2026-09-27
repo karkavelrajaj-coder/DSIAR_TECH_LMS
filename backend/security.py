@@ -114,6 +114,8 @@ def authenticate(email: str, password: str) -> dict:
     user = users_col().find_one({"email": email})
     if not user or not verify_password(password, user["password_hash"]):
         raise ValueError("Invalid email or password.")
+    if user.get("disabled"):
+        raise ValueError("This account has been deactivated. Contact an admin.")
     return {
         "id": str(user["_id"]),
         "name": user["name"],
@@ -152,6 +154,10 @@ def get_current_user(
         user = None
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account no longer exists.")
+    if user.get("disabled"):
+        # Kills any session already in progress the moment an admin
+        # deactivates the account, not just new logins.
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="This account has been deactivated.")
 
     return {
         "id": str(user["_id"]),

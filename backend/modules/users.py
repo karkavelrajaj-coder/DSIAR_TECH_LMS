@@ -7,7 +7,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 
 from db import users_col
-from schemas import CreateUserRequest, SetTimezoneRequest, UpdateRoleRequest
+from schemas import CreateUserRequest, SetTimezoneRequest, UpdateRoleRequest, UpdateStatusRequest
 from security import ROLES, get_current_user, hash_password, require_roles
 from serializers import user_out
 from utils.timezones import set_user_timezone, timezone_options
@@ -22,8 +22,10 @@ def list_users(user: dict = Depends(require_roles("admin"))):
 
 @router.get("/users/instructors")
 def list_instructors(user: dict = Depends(require_roles("admin"))):
-    """For the 'assign to instructor' dropdown when creating/editing a course."""
-    return [user_out(u) for u in users_col().find({"role": "instructor"})]
+    """For the 'assign to instructor' dropdown when creating/editing a course.
+    Deactivated instructors are excluded — they shouldn't be assignable to
+    new courses, though a course they already teach keeps their name."""
+    return [user_out(u) for u in users_col().find({"role": "instructor", "disabled": {"$ne": True}})]
 
 
 @router.post("/users")
@@ -55,6 +57,31 @@ def update_role(user_id: str, body: UpdateRoleRequest, user: dict = Depends(requ
     result = users_col().update_one({"_id": ObjectId(user_id)}, {"$set": {"role": body.role}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found.")
+    return {"ok": True}
+
+
+@router.patch("/users/{user_id}/status")
+def update_status(user_id: str, body: UpdateStatusRequest, user: dict = Depends(require_roles("admin"))):
+    """Deactivate/reactivate an account (soft delete). A deactivated account
+    can't log in and drops out of enroll/assign pickers, but nothing about
+    it — enrollments, progress, quiz attempts, submissions, certificates,
+    or (for an instructor) the courses they teach — is touched or deleted.
+    Reactivating just flips the flag back."""
+    if user_id == user["id"] and body.disabled:
+        raise HTTPException(status_code=400, detail="You can't deactivate your own account.")
+
+    target = users_col().find_one({"_id": ObjectId(user_id)})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if body.disabled and target["role"] == "admin":
+        other_active_admins = users_col().count_documents(
+            {"role": "admin", "disabled": {"$ne": True}, "_id": {"$ne": target["_id"]}}
+        )
+        if other_active_admins == 0:
+            raise HTTPException(status_code=400, detail="Can't deactivate the last active admin account.")
+
+    users_col().update_one({"_id": target["_id"]}, {"$set": {"disabled": body.disabled}})
     return {"ok": True}
 
 

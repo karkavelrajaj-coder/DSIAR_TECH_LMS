@@ -18,6 +18,7 @@ def user_out(doc: dict) -> dict:
         "email": doc.get("email"),
         "role": doc.get("role"),
         "timezone": doc.get("timezone"),
+        "disabled": bool(doc.get("disabled")),
         "created_at": _iso(doc.get("created_at")),
     }
 

@@ -82,7 +82,27 @@ export default function ManageUsers() {
     load();
   }
 
-  const students = users.filter((u) => u.role === "student");
+  async function toggleStatus(targetUser) {
+    const disabling = !targetUser.disabled;
+    const ok = await confirm({
+      title: disabling ? "Deactivate this account?" : "Reactivate this account?",
+      message: disabling
+        ? `${targetUser.name} won't be able to log in anymore and drops out of the enroll/assign pickers. Nothing of theirs — enrollments, progress, submissions, certificates${targetUser.role === "instructor" ? ", or the courses they teach" : ""} — is deleted, and you can reactivate them anytime.`
+        : `${targetUser.name} will be able to log in again and reappear in the enroll/assign pickers.`,
+      confirmLabel: disabling ? "Deactivate" : "Reactivate",
+      variant: disabling ? "danger" : "brand",
+    });
+    if (!ok) return;
+    setError("");
+    try {
+      await api.patch(`/users/${targetUser.id}/status`, { disabled: disabling });
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  const students = users.filter((u) => u.role === "student" && !u.disabled);
 
   return (
     <div>
@@ -185,27 +205,41 @@ export default function ManageUsers() {
                 <th className="px-5 py-2.5">Name</th>
                 <th className="px-5 py-2.5">Email</th>
                 <th className="px-5 py-2.5">Role</th>
+                <th className="px-5 py-2.5">Status</th>
                 <th className="px-5 py-2.5">Change role</th>
+                <th className="px-5 py-2.5">Account</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-t border-ink-100">
+                <tr key={u.id} className={`border-t border-ink-100 ${u.disabled ? "opacity-60" : ""}`}>
                   <td className="px-5 py-2.5 font-medium text-ink-800">{u.name}</td>
                   <td className="px-5 py-2.5 text-ink-500">{u.email}</td>
                   <td className="px-5 py-2.5">
                     <Badge variant={roleVariant[u.role] || "neutral"}>{u.role}</Badge>
                   </td>
                   <td className="px-5 py-2.5">
+                    <Badge variant={u.disabled ? "danger" : "success"}>{u.disabled ? "Deactivated" : "Active"}</Badge>
+                  </td>
+                  <td className="px-5 py-2.5">
                     <Select
                       value={u.role}
                       onChange={(e) => updateRole(u, e.target.value)}
                       className="w-auto py-1 text-xs"
+                      disabled={u.disabled}
                     >
                       <option value="student">student</option>
                       <option value="instructor">instructor</option>
                       <option value="admin">admin</option>
                     </Select>
+                  </td>
+                  <td className="px-5 py-2.5">
+                    <button
+                      onClick={() => toggleStatus(u)}
+                      className={`text-xs font-medium hover:underline ${u.disabled ? "text-success-600" : "text-danger-600"}`}
+                    >
+                      {u.disabled ? "Reactivate" : "Deactivate"}
+                    </button>
                   </td>
                 </tr>
               ))}
