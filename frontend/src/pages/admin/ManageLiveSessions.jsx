@@ -11,6 +11,7 @@ import {
   Input,
   Modal,
   PageHeader,
+  RichText,
   Select,
   Textarea,
 } from "../../components/ui";
@@ -153,7 +154,7 @@ export default function ManageLiveSessions() {
                   </IconButton>
                 </div>
               </div>
-              {s.description && <p className="mt-2 text-sm text-ink-600">{s.description}</p>}
+              {s.description && <RichText text={s.description} className="mt-2 text-sm text-ink-600" />}
 
               <div className="mt-2 text-xs text-ink-500">
                 {s.ended_at && `✅ Ended at ${formatUtc(s.ended_at)}.`}
