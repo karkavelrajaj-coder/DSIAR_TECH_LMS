@@ -307,8 +307,16 @@ export default function CoursePlayer() {
                   <Button variant="secondary" onClick={() => goToItem(nextItem)}>
                     {nextItem.type === "quiz" ? "Next module quiz →" : "Next lesson →"}
                   </Button>
-                ) : (
+                ) : activeItem?.completed ? (
+                  // No nextItem alone just means this quiz is last in the
+                  // flat sequence — it says nothing about whether THIS
+                  // quiz has actually been passed yet, so it can't gate
+                  // the "finished" badge on its own (that was the bug:
+                  // showing "finished" while the last quiz was still
+                  // unpassed, even mid-"Loading quiz…").
                   <Badge variant="success">🎉 You've finished this course</Badge>
+                ) : (
+                  <span className="text-xs text-ink-400">Pass this quiz above to finish the course.</span>
                 )}
               </div>
             </div>
