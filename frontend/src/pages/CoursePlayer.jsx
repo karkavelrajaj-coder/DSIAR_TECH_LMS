@@ -11,7 +11,29 @@ import ModuleQuizPanel from "../components/ModuleQuizPanel";
  * replaces the earlier "every lesson's video stacked on one long page"
  * layout, which was carried over from the Streamlit app's single-page
  * constraint and doesn't hold up as a real course player.
+ *
+ * A module's "steps" are its lessons followed by its quiz (if it has one) —
+ * buildFlatItems() flattens the whole course into that single ordered
+ * sequence, which drives progress, Next/Previous navigation, and which
+ * item auto-selects on load. Without this, "Next" after the last lesson of
+ * a module would skip straight to the next module instead of routing
+ * through that module's quiz, and the top progress bar would only ever
+ * count lessons even though quizzes are now part of "complete" too.
  */
+function buildFlatItems(modules, quizStatus) {
+  const items = [];
+  for (const m of modules) {
+    for (const l of m.lessons) {
+      items.push({ type: "lesson", id: l.id, moduleId: m.id, completed: l.completed });
+    }
+    const qs = quizStatus[m.id];
+    if (qs) {
+      items.push({ type: "quiz", id: m.id, moduleId: m.id, completed: qs.passed });
+    }
+  }
+  return items;
+}
+
 export default function CoursePlayer() {
   const { courseId } = useParams();
   const [course, setCourse] = useState(null);
@@ -22,23 +44,6 @@ export default function CoursePlayer() {
   const [quizStatus, setQuizStatus] = useState({}); // moduleId -> quiz summary, or null if no quiz
   const [collapsedModules, setCollapsedModules] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  async function load(preferredLessonId) {
-    try {
-      const res = await api.get(`/courses/${courseId}`);
-      setCourse(res.data);
-      setActiveLessonId((current) => {
-        const flat = res.data.modules.flatMap((m) => m.lessons);
-        if (preferredLessonId && flat.some((l) => l.id === preferredLessonId)) return preferredLessonId;
-        if (current && flat.some((l) => l.id === current)) return current;
-        const firstIncomplete = flat.find((l) => !l.completed);
-        return (firstIncomplete || flat[0])?.id || null;
-      });
-      loadQuizStatuses(res.data.modules);
-    } catch (err) {
-      setError(err.message);
-    }
-  }
 
   async function loadQuizStatuses(modules) {
     const entries = await Promise.all(
@@ -51,7 +56,36 @@ export default function CoursePlayer() {
         }
       })
     );
-    setQuizStatus(Object.fromEntries(entries));
+    const map = Object.fromEntries(entries);
+    setQuizStatus(map);
+    return map;
+  }
+
+  // Fetches the course plus every module's quiz status and returns both,
+  // so a caller that needs to navigate right afterwards (markComplete, the
+  // initial load) can compute the fresh flat item sequence instead of
+  // reading stale state from before these async requests resolved.
+  async function reload() {
+    const res = await api.get(`/courses/${courseId}`);
+    setCourse(res.data);
+    const qs = await loadQuizStatuses(res.data.modules);
+    return { modules: res.data.modules, quizStatus: qs };
+  }
+
+  async function load() {
+    try {
+      const { modules, quizStatus: qs } = await reload();
+      if (activeLessonId == null && activeQuizModuleId == null) {
+        const items = buildFlatItems(modules, qs);
+        const firstIncomplete = items.find((i) => !i.completed) || items[0];
+        if (firstIncomplete) {
+          if (firstIncomplete.type === "lesson") setActiveLessonId(firstIncomplete.id);
+          else setActiveQuizModuleId(firstIncomplete.moduleId);
+        }
+      }
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   useEffect(() => {
@@ -60,25 +94,19 @@ export default function CoursePlayer() {
   }, [courseId]);
 
   const flatLessons = useMemo(() => course?.modules.flatMap((m) => m.lessons) || [], [course]);
-  const totalLessons = flatLessons.length;
-  const completedCount = flatLessons.filter((l) => l.completed).length;
-  const overallProgress = totalLessons ? completedCount / totalLessons : 0;
+  const flatItems = useMemo(() => (course ? buildFlatItems(course.modules, quizStatus) : []), [course, quizStatus]);
+  const totalItems = flatItems.length;
+  const completedItems = flatItems.filter((i) => i.completed).length;
+  const overallProgress = totalItems ? completedItems / totalItems : 0;
 
-  const activeIndex = flatLessons.findIndex((l) => l.id === activeLessonId);
-  const activeLesson = activeIndex >= 0 ? flatLessons[activeIndex] : null;
+  const activeIndex = flatItems.findIndex(
+    (i) => (i.type === "lesson" && i.id === activeLessonId) || (i.type === "quiz" && i.moduleId === activeQuizModuleId)
+  );
+  const activeItem = activeIndex >= 0 ? flatItems[activeIndex] : null;
+  const activeLesson = activeItem?.type === "lesson" ? flatLessons.find((l) => l.id === activeLessonId) : null;
   const activeModule = course?.modules.find((m) => m.lessons.some((l) => l.id === activeLessonId));
-  const nextLesson = activeIndex >= 0 ? flatLessons[activeIndex + 1] : null;
-  const prevLesson = activeIndex > 0 ? flatLessons[activeIndex - 1] : null;
-
-  async function markComplete(lessonId) {
-    const res = await api.post(`/lessons/${lessonId}/complete`);
-    if (res.data.certificate_issued) {
-      setCelebration("🎓 Course complete and assignment approved — your certificate is ready! Check Certificates.");
-    }
-    const idx = flatLessons.findIndex((l) => l.id === lessonId);
-    const next = flatLessons[idx + 1];
-    await load(next ? next.id : lessonId);
-  }
+  const nextItem = activeIndex >= 0 ? flatItems[activeIndex + 1] : null;
+  const prevItem = activeIndex > 0 ? flatItems[activeIndex - 1] : null;
 
   function selectLesson(lessonId) {
     setActiveLessonId(lessonId);
@@ -88,7 +116,27 @@ export default function CoursePlayer() {
 
   function selectQuiz(moduleId) {
     setActiveQuizModuleId(moduleId);
+    setActiveLessonId(null);
     setSidebarOpen(false);
+  }
+
+  function goToItem(item) {
+    if (!item) return;
+    if (item.type === "lesson") selectLesson(item.id);
+    else selectQuiz(item.moduleId);
+  }
+
+  async function markComplete(lessonId) {
+    const res = await api.post(`/lessons/${lessonId}/complete`);
+    if (res.data.certificate_issued) {
+      setCelebration("🎓 Course complete and assignment approved — your certificate is ready! Check Certificates.");
+    }
+    const { modules, quizStatus: qs } = await reload();
+    const items = buildFlatItems(modules, qs);
+    const idx = items.findIndex((i) => i.type === "lesson" && i.id === lessonId);
+    const next = idx >= 0 ? items[idx + 1] : null;
+    if (next) goToItem(next);
+    else selectLesson(lessonId);
   }
 
   function toggleModule(moduleId) {
@@ -113,7 +161,7 @@ export default function CoursePlayer() {
           <div className="mt-1 flex items-center gap-2">
             <ProgressBar value={overallProgress} className="w-32 sm:w-56" />
             <span className="text-xs font-medium text-ink-500">
-              {completedCount}/{totalLessons} lessons · {Math.round(overallProgress * 100)}%
+              {completedItems}/{totalItems} completed · {Math.round(overallProgress * 100)}%
             </span>
           </div>
         </div>
@@ -243,6 +291,20 @@ export default function CoursePlayer() {
                   }}
                 />
               </div>
+
+              <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-6">
+                <Button variant="secondary" disabled={!prevItem} onClick={() => goToItem(prevItem)}>
+                  ← Previous
+                </Button>
+                <div className="flex-1" />
+                {nextItem ? (
+                  <Button variant="secondary" onClick={() => goToItem(nextItem)}>
+                    {nextItem.type === "quiz" ? "Next module quiz →" : "Next lesson →"}
+                  </Button>
+                ) : (
+                  <Badge variant="success">🎉 You've finished this course</Badge>
+                )}
+              </div>
             </div>
           ) : !activeLesson ? (
             <div className="p-8 text-sm text-ink-500">This course doesn't have any lessons yet.</div>
@@ -286,14 +348,18 @@ export default function CoursePlayer() {
               )}
 
               <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-6">
-                <Button variant="secondary" disabled={!prevLesson} onClick={() => prevLesson && selectLesson(prevLesson.id)}>
+                <Button variant="secondary" disabled={!prevItem} onClick={() => goToItem(prevItem)}>
                   ← Previous
                 </Button>
                 <div className="flex-1" />
                 {!activeLesson.completed ? (
-                  <Button onClick={() => markComplete(activeLesson.id)}>Mark complete{nextLesson ? " & continue" : ""}</Button>
-                ) : nextLesson ? (
-                  <Button onClick={() => selectLesson(nextLesson.id)}>Next lesson →</Button>
+                  <Button onClick={() => markComplete(activeLesson.id)}>
+                    Mark complete{nextItem ? (nextItem.type === "quiz" ? " & take quiz" : " & continue") : ""}
+                  </Button>
+                ) : nextItem ? (
+                  <Button onClick={() => goToItem(nextItem)}>
+                    {nextItem.type === "quiz" ? "Take Module Quiz →" : "Next lesson →"}
+                  </Button>
                 ) : (
                   <Badge variant="success">🎉 You've finished this course</Badge>
                 )}
