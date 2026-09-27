@@ -38,14 +38,14 @@ export default function Certificates() {
 
   return (
     <div>
-      <PageHeader eyebrow="Achievements" title="My certificates" description="Earned automatically once a course and its assignment are approved." />
+      <PageHeader eyebrow="Achievements" title="My certificates" description="Earned automatically once every module (lessons + quiz) and the assignment are complete." />
 
       {certs.length === 0 ? (
         <div className="mt-8">
           <EmptyState
             icon="🏆"
             title="No certificates yet"
-            description="A certificate is issued automatically once you've completed every lesson in a course AND your assignment has been approved."
+            description="A certificate is issued automatically once you've completed every module in a course — its lessons AND its quiz, passed — AND your assignment has been approved."
           />
         </div>
       ) : (
