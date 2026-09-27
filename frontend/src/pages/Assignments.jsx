@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { Badge, Button, Card, EmptyState, LoadingScreen, PageHeader, Textarea } from "../components/ui";
+import { Badge, Button, Card, EmptyState, LoadingScreen, PageHeader, RichText, Textarea } from "../components/ui";
 import { useConfirm } from "../context/ConfirmContext";
 
 const statusBadge = {
@@ -74,13 +74,13 @@ export default function Assignments() {
                 </div>
               ) : (
                 <>
-                  <p className="mt-2 text-sm text-ink-600">{a.description}</p>
+                  <RichText text={a.description} className="mt-2 text-sm text-ink-600" />
 
                   {a.submission ? (
                     <div className="mt-3 rounded-lg bg-ink-50 px-3.5 py-3 text-sm">
                       <div className="text-ink-700">
                         <span className="font-semibold text-ink-500">Your submission: </span>
-                        {a.submission.link_or_text}
+                        <RichText as="span" text={a.submission.link_or_text} />
                       </div>
                       {a.submission.status !== "pending" && (
                         <div className="mt-1.5 text-ink-700">
@@ -88,7 +88,7 @@ export default function Assignments() {
                           {a.submission.grade ?? "—"}
                           <span className="mx-1.5 text-ink-300">·</span>
                           <span className="font-semibold text-ink-500">Feedback: </span>
-                          {a.submission.feedback || "—"}
+                          <RichText as="span" text={a.submission.feedback || "—"} />
                         </div>
                       )}
                     </div>
