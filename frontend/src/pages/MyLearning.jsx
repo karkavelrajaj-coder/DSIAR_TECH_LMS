@@ -59,7 +59,7 @@ function Section({ title, courses, navigate }) {
               <h3 className="truncate font-display text-base font-semibold text-ink-900">{c.title}</h3>
               <ProgressBar value={c.progress_pct} className="mt-2 max-w-md" />
               <div className="mt-1 text-xs text-ink-500">
-                {c.lessons_completed}/{c.lessons_total} lessons completed
+                {c.lessons_completed}/{c.lessons_total} completed
               </div>
             </div>
             <Button className="flex-shrink-0" onClick={() => navigate(`/course/${c.id}`)}>

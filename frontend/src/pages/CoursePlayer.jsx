@@ -45,7 +45,8 @@ export default function CoursePlayer() {
   const [collapsedModules, setCollapsedModules] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  async function loadQuizStatuses(modules) {
+  // Pure fetch, no state writes — see reload() for why this matters.
+  async function fetchQuizStatuses(modules) {
     const entries = await Promise.all(
       modules.map(async (m) => {
         try {
@@ -56,19 +57,24 @@ export default function CoursePlayer() {
         }
       })
     );
-    const map = Object.fromEntries(entries);
-    setQuizStatus(map);
-    return map;
+    return Object.fromEntries(entries);
   }
 
-  // Fetches the course plus every module's quiz status and returns both,
-  // so a caller that needs to navigate right afterwards (markComplete, the
-  // initial load) can compute the fresh flat item sequence instead of
-  // reading stale state from before these async requests resolved.
+  // Fetches the course plus every module's quiz status, THEN applies both
+  // to state together. Setting course before quizStatus has arrived (the
+  // old approach) rendered a real frame with quizzes not yet counted —
+  // "39 lessons, 3%" flashing before the quiz statuses came back and
+  // recomputed it as "49 items, 4%", plus a spurious "this course doesn't
+  // have any lessons yet" the instant course.modules existed but no item
+  // was selected yet. Resolving both requests first and calling setCourse
+  // + setQuizStatus back to back (same tick, no await between them) lets
+  // React batch them into one render, so the very first render already
+  // has the right combined total.
   async function reload() {
     const res = await api.get(`/courses/${courseId}`);
+    const qs = await fetchQuizStatuses(res.data.modules);
     setCourse(res.data);
-    const qs = await loadQuizStatuses(res.data.modules);
+    setQuizStatus(qs);
     return { modules: res.data.modules, quizStatus: qs };
   }
 
@@ -307,7 +313,9 @@ export default function CoursePlayer() {
               </div>
             </div>
           ) : !activeLesson ? (
-            <div className="p-8 text-sm text-ink-500">This course doesn't have any lessons yet.</div>
+            <div className="p-8 text-sm text-ink-500">
+              {totalItems === 0 ? "This course doesn't have any lessons yet." : "Loading…"}
+            </div>
           ) : (
             <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
               <div className="text-xs font-semibold uppercase tracking-wide text-brand-600">{activeModule?.title}</div>

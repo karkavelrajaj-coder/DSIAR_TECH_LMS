@@ -18,6 +18,8 @@ from db import (
     lessons_col,
     modules_col,
     progress_col,
+    quiz_attempts_col,
+    quizzes_col,
 )
 from schemas import (
     CreateCourseRequest,
@@ -292,6 +294,12 @@ def complete_lesson(lesson_id: str, user: dict = Depends(get_current_user)):
 
 @router.get("/my/learning")
 def my_learning(user: dict = Depends(get_current_user)):
+    """Progress here must count the same "steps" as the course player does
+    (lessons + each module's quiz, if it has one) — see buildFlatItems() in
+    CoursePlayer.jsx. Counting lessons only would show a different, lower
+    percentage here than the course player shows once its quiz statuses
+    finish loading, which is exactly the inconsistency this was fixed to
+    avoid."""
     enrollments = list(enrollments_col().find({"user_id": user["id"]}))
     out = []
     for e in enrollments:
@@ -304,6 +312,16 @@ def my_learning(user: dict = Depends(get_current_user)):
         done = progress_col().count_documents(
             {"user_id": user["id"], "lesson_id": {"$in": lesson_ids}, "completed": True}
         )
+
+        quizzes = list(quizzes_col().find({"module_id": {"$in": module_ids}}))
+        total += len(quizzes)
+        for quiz in quizzes:
+            has_pass = quiz_attempts_col().find_one(
+                {"quiz_id": str(quiz["_id"]), "user_id": user["id"], "passed": True}
+            )
+            if has_pass:
+                done += 1
+
         item = course_out(course)
         item["lessons_total"] = total
         item["lessons_completed"] = done
