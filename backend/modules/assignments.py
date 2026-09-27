@@ -16,6 +16,8 @@ from db import (
     lessons_col,
     modules_col,
     progress_col,
+    quiz_attempts_col,
+    quizzes_col,
     submissions_col,
     users_col,
 )
@@ -164,14 +166,32 @@ def my_assignments(user: dict = Depends(get_current_user)):
         item["course_title"] = course_title
 
         if user["role"] == "student" and not modules_done:
+            # Shown right next to "finish every module (lessons + module
+            # quiz, passed)" — so it has to report both, not just lessons.
+            # Lessons-only used to show e.g. "39/39 lessons completed"
+            # while still locked, which reads as a bug (why is this locked
+            # if it's 100%?) when really the module quizzes just weren't
+            # counted here at all.
             module_ids = [str(m["_id"]) for m in modules_col().find({"course_id": a["course_id"]})]
             lesson_ids = [str(l["_id"]) for l in lessons_col().find({"module_id": {"$in": module_ids}})]
             done_count = progress_col().count_documents(
                 {"user_id": user["id"], "lesson_id": {"$in": lesson_ids}, "completed": True}
             )
+
+            quizzes = list(quizzes_col().find({"module_id": {"$in": module_ids}}))
+            quizzes_done = sum(
+                1
+                for quiz in quizzes
+                if quiz_attempts_col().find_one(
+                    {"quiz_id": str(quiz["_id"]), "user_id": user["id"], "passed": True}
+                )
+            )
+
             item["locked"] = True
             item["lessons_completed"] = done_count
             item["lessons_total"] = len(lesson_ids)
+            item["quizzes_completed"] = quizzes_done
+            item["quizzes_total"] = len(quizzes)
             out.append(item)
             continue
 
