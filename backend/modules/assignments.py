@@ -27,7 +27,7 @@ from schemas import (
 )
 from security import get_current_user, require_roles
 from serializers import assignment_out, submission_out
-from utils.certificates import course_lessons_complete, ensure_certificate
+from utils.certificates import course_modules_complete, ensure_certificate
 
 router = APIRouter(prefix="/api", tags=["assignments"])
 
@@ -159,11 +159,11 @@ def my_assignments(user: dict = Depends(get_current_user)):
         course = courses_col().find_one({"_id": _oid(a["course_id"])})
         course_title = course["title"] if course else "Unknown"
 
-        lessons_done = course_lessons_complete(user["id"], a["course_id"])
+        modules_done = course_modules_complete(user["id"], a["course_id"])
         item = assignment_out(a)
         item["course_title"] = course_title
 
-        if user["role"] == "student" and not lessons_done:
+        if user["role"] == "student" and not modules_done:
             module_ids = [str(m["_id"]) for m in modules_col().find({"course_id": a["course_id"]})]
             lesson_ids = [str(l["_id"]) for l in lessons_col().find({"module_id": {"$in": module_ids}})]
             done_count = progress_col().count_documents(
@@ -193,8 +193,8 @@ def submit_assignment(assignment_id: str, body: SubmitAssignmentRequest, user: d
     if not is_enrolled:
         raise HTTPException(status_code=403, detail="You're not enrolled in this course.")
 
-    if user["role"] == "student" and not course_lessons_complete(user["id"], assignment["course_id"]):
-        raise HTTPException(status_code=403, detail="Finish all lessons in this course before submitting.")
+    if user["role"] == "student" and not course_modules_complete(user["id"], assignment["course_id"]):
+        raise HTTPException(status_code=403, detail="Finish every module (lessons + quiz) in this course before submitting.")
 
     if not body.link_or_text.strip():
         raise HTTPException(status_code=400, detail="Add a link or answer before submitting.")

@@ -99,6 +99,45 @@ def certificate_out(doc: dict) -> dict:
     }
 
 
+def quiz_out(doc: dict) -> dict:
+    """Student-facing view of a module quiz: never includes
+    correct_option_ids — those only ever go to admin/instructor
+    (quiz_manage_out) or come back in a submit response's per-question
+    review, after grading."""
+    return {
+        "id": str(doc["_id"]),
+        "module_id": doc.get("module_id"),
+        "questions": [
+            {"id": q["id"], "type": q["type"], "text": q["text"], "options": q["options"]}
+            for q in doc.get("questions", [])
+        ],
+    }
+
+
+def quiz_manage_out(doc: dict) -> dict:
+    """Admin/instructor view — includes correct_option_ids so the quiz
+    builder can show/edit the answer key."""
+    return {
+        "id": str(doc["_id"]),
+        "module_id": doc.get("module_id"),
+        "questions": doc.get("questions", []),
+        "updated_at": _iso(doc.get("updated_at")),
+    }
+
+
+def quiz_attempt_out(doc: dict) -> dict:
+    return {
+        "id": str(doc["_id"]),
+        "quiz_id": doc.get("quiz_id"),
+        "module_id": doc.get("module_id"),
+        "user_id": doc.get("user_id"),
+        "attempt_number": doc.get("attempt_number"),
+        "score_percent": doc.get("score_percent"),
+        "passed": doc.get("passed"),
+        "submitted_at": _iso(doc.get("submitted_at")),
+    }
+
+
 def live_session_out(doc: dict) -> dict:
     return {
         "id": str(doc["_id"]),

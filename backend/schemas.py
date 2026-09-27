@@ -49,15 +49,27 @@ class SettingsOut(BaseModel):
     digitalsamba_team_id_source: str = "env"
     jwt_expire_minutes: int
     jwt_expire_minutes_source: str = "env"
+    quiz_pass_percent: int
+    quiz_pass_percent_source: str = "default"
+    quiz_max_attempts: int
+    quiz_max_attempts_source: str = "default"
+    quiz_shuffle_questions: bool
+    quiz_shuffle_questions_source: str = "default"
+    quiz_shuffle_options: bool
+    quiz_shuffle_options_source: str = "default"
 
 
 class SettingsUpdate(BaseModel):
-    # Any field left out of the request body is left untouched. Sending an
-    # empty string clears that override and falls back to the Render env
-    # var again (see runtime_settings.py).
+    # Any field left out of the request body is left untouched. Sending
+    # null clears that override and falls back to the default again (see
+    # runtime_settings.py).
     digitalsamba_developer_key: Optional[str] = None
     digitalsamba_team_id: Optional[str] = None
     jwt_expire_minutes: Optional[int] = Field(default=None, ge=5, le=43200)
+    quiz_pass_percent: Optional[int] = Field(default=None, ge=0, le=100)
+    quiz_max_attempts: Optional[int] = Field(default=None, ge=0, le=50)
+    quiz_shuffle_questions: Optional[bool] = None
+    quiz_shuffle_options: Optional[bool] = None
 
 
 # --- Courses --------------------------------------------------------------
@@ -136,6 +148,34 @@ class GradeSubmissionRequest(BaseModel):
     grade: int = Field(ge=0, le=100)
     status: str  # pending | approved | rejected
     feedback: str = ""
+
+
+# --- Module quizzes (5 auto-graded questions per module) -------------------
+
+class QuizOptionIn(BaseModel):
+    id: Optional[str] = None  # server assigns one if omitted
+    text: str
+
+
+class QuizQuestionIn(BaseModel):
+    id: Optional[str] = None  # server assigns one if omitted
+    type: str  # "single" | "multi" | "true_false"
+    text: str
+    options: list[QuizOptionIn]
+    correct_option_ids: list[str]
+
+
+class SaveQuizRequest(BaseModel):
+    questions: list[QuizQuestionIn] = Field(min_length=5, max_length=5)
+
+
+class SubmitQuizAnswer(BaseModel):
+    question_id: str
+    selected_option_ids: list[str] = []
+
+
+class SubmitQuizRequest(BaseModel):
+    answers: list[SubmitQuizAnswer]
 
 
 # --- Live sessions ----------------------------------------------------------

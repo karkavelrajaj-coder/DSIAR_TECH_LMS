@@ -69,8 +69,8 @@ export default function Assignments() {
 
               {a.locked ? (
                 <div className="mt-3 rounded-lg bg-warning-50 px-3 py-2 text-sm text-warning-700">
-                  🔒 Locked — finish all the lessons in <strong>{a.course_title}</strong> to unlock this
-                  assignment ({a.lessons_completed}/{a.lessons_total} lessons completed).
+                  🔒 Locked — finish every module in <strong>{a.course_title}</strong> (lessons + module quiz,
+                  passed) to unlock this assignment ({a.lessons_completed}/{a.lessons_total} lessons completed).
                 </div>
               ) : (
                 <>

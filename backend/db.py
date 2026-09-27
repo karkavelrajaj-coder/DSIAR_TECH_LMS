@@ -75,6 +75,16 @@ def settings_col():
     return get_db()["settings"]
 
 
+def quizzes_col():
+    """One document per module (5 auto-graded questions each) — see
+    modules/quizzes.py."""
+    return get_db()["quizzes"]
+
+
+def quiz_attempts_col():
+    return get_db()["quiz_attempts"]
+
+
 def ensure_indexes():
     """Same resilience pattern as the Streamlit app: wrapped in try/except so
     a leftover duplicate can't crash startup."""
@@ -89,6 +99,8 @@ def ensure_indexes():
         (certificates_col, "cert_id", {"unique": True}),
         (live_sessions_col, "course_id", {}),
         (live_sessions_col, "room_name", {"unique": True}),
+        (quizzes_col, "module_id", {"unique": True}),
+        (quiz_attempts_col, [("quiz_id", 1), ("user_id", 1)], {}),
     ]
     for col_fn, keys, kwargs in index_specs:
         try:

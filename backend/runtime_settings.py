@@ -5,10 +5,13 @@ Everything here falls back to the existing Render/.env value
 (config.settings) until an admin saves an override in MongoDB — so nothing
 breaks on first boot before this collection has any document in it.
 
-Only three keys are exposed (see ADMIN_SETTINGS_SCHEMA):
-  - digitalsamba_developer_key
-  - digitalsamba_team_id
-  - jwt_expire_minutes
+Two kinds of keys live here:
+  - Keys with a Render env var counterpart (digitalsamba_developer_key,
+    digitalsamba_team_id, jwt_expire_minutes) — fall back to that env var
+    until an admin saves an override.
+  - Keys with NO env var at all (the quiz_* settings below) — these are
+    purely app-level dials that only ever lived in the database, with a
+    hardcoded default used until an admin saves a value.
 
 Everything else (MONGO_URI, DB_NAME, CORS_ORIGINS, JWT_SECRET,
 COOKIE_SECURE, COOKIE_SAMESITE, SEED_ADMIN_*, and the frontend's
@@ -28,13 +31,34 @@ from db import settings_col
 
 SETTINGS_DOC_ID = "app_settings"
 
+
+def _to_bool(v):
+    if isinstance(v, bool):
+        return v
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
 # key -> schema. "env_attr" is the attribute on config.settings used as the
-# fallback default until an admin saves an override for that key.
+# fallback default until an admin saves an override for that key; "default"
+# is used instead for keys with no env var counterpart at all.
 ADMIN_SETTINGS_SCHEMA = {
     "digitalsamba_developer_key": {"env_attr": "DIGITALSAMBA_DEVELOPER_KEY", "secret": True, "cast": str},
     "digitalsamba_team_id": {"env_attr": "DIGITALSAMBA_TEAM_ID", "secret": True, "cast": str},
     "jwt_expire_minutes": {"env_attr": "JWT_EXPIRE_MINUTES", "secret": False, "cast": int},
+    # Module quizzes: pass mark, retake cap (0 = unlimited), and whether
+    # each attempt reshuffles questions/options — see modules/quizzes.py.
+    "quiz_pass_percent": {"env_attr": None, "default": 60, "secret": False, "cast": int},
+    "quiz_max_attempts": {"env_attr": None, "default": 0, "secret": False, "cast": int},
+    "quiz_shuffle_questions": {"env_attr": None, "default": True, "secret": False, "cast": _to_bool},
+    "quiz_shuffle_options": {"env_attr": None, "default": True, "secret": False, "cast": _to_bool},
 }
+
+
+def _default_for(key: str):
+    schema = ADMIN_SETTINGS_SCHEMA[key]
+    if schema.get("env_attr"):
+        return getattr(env_settings, schema["env_attr"])
+    return schema["default"]
 
 _lock = Lock()
 _cache = {"doc": None, "ts": 0.0}
@@ -63,26 +87,27 @@ def invalidate_cache() -> None:
 
 def get_setting(key: str):
     """The effective value for one admin-configurable setting: the admin's
-    saved override if there is one, else the Render/.env default."""
-    schema = ADMIN_SETTINGS_SCHEMA[key]
+    saved override if there is one, else its default (Render/.env for the
+    keys that have one, else the hardcoded default above)."""
     doc = _load_doc()
     value = doc.get(key)
     if value not in (None, ""):
         return value
-    return getattr(env_settings, schema["env_attr"])
+    return _default_for(key)
 
 
 def get_effective_settings() -> dict:
     """All admin-configurable settings, each tagged with whether its
-    current value is coming from the database or from the env-var default."""
+    current value is coming from the database, a Render env var, or a
+    hardcoded default."""
     doc = _load_doc()
     result = {}
     for key, schema in ADMIN_SETTINGS_SCHEMA.items():
         db_value = doc.get(key)
         has_override = db_value not in (None, "")
         result[key] = {
-            "value": db_value if has_override else getattr(env_settings, schema["env_attr"]),
-            "source": "database" if has_override else "env",
+            "value": db_value if has_override else _default_for(key),
+            "source": "database" if has_override else ("env" if schema.get("env_attr") else "default"),
         }
     return result
 

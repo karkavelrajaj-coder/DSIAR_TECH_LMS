@@ -36,6 +36,10 @@ def _build_response(reveal: bool) -> dict:
     dev_key = effective["digitalsamba_developer_key"]
     team_id = effective["digitalsamba_team_id"]
     expire = effective["jwt_expire_minutes"]
+    pass_pct = effective["quiz_pass_percent"]
+    max_attempts = effective["quiz_max_attempts"]
+    shuffle_q = effective["quiz_shuffle_questions"]
+    shuffle_o = effective["quiz_shuffle_options"]
     return {
         "digitalsamba_developer_key": dev_key["value"] if reveal else _mask(dev_key["value"]),
         "digitalsamba_developer_key_set": bool(dev_key["value"]),
@@ -45,6 +49,14 @@ def _build_response(reveal: bool) -> dict:
         "digitalsamba_team_id_source": team_id["source"],
         "jwt_expire_minutes": expire["value"],
         "jwt_expire_minutes_source": expire["source"],
+        "quiz_pass_percent": pass_pct["value"],
+        "quiz_pass_percent_source": pass_pct["source"],
+        "quiz_max_attempts": max_attempts["value"],
+        "quiz_max_attempts_source": max_attempts["source"],
+        "quiz_shuffle_questions": shuffle_q["value"],
+        "quiz_shuffle_questions_source": shuffle_q["source"],
+        "quiz_shuffle_options": shuffle_o["value"],
+        "quiz_shuffle_options_source": shuffle_o["source"],
     }
 
 

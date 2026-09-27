@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { Badge, Button, LoadingScreen, ProgressBar } from "../components/ui";
+import ModuleQuizPanel from "../components/ModuleQuizPanel";
 
 /**
  * Real course-player layout: a curriculum sidebar (every lesson listed once,
@@ -17,6 +18,8 @@ export default function CoursePlayer() {
   const [error, setError] = useState("");
   const [celebration, setCelebration] = useState("");
   const [activeLessonId, setActiveLessonId] = useState(null);
+  const [activeQuizModuleId, setActiveQuizModuleId] = useState(null);
+  const [quizStatus, setQuizStatus] = useState({}); // moduleId -> quiz summary, or null if no quiz
   const [collapsedModules, setCollapsedModules] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -31,9 +34,24 @@ export default function CoursePlayer() {
         const firstIncomplete = flat.find((l) => !l.completed);
         return (firstIncomplete || flat[0])?.id || null;
       });
+      loadQuizStatuses(res.data.modules);
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  async function loadQuizStatuses(modules) {
+    const entries = await Promise.all(
+      modules.map(async (m) => {
+        try {
+          const res = await api.get(`/modules/${m.id}/quiz`);
+          return [m.id, res.data]; // null if the module has no quiz
+        } catch {
+          return [m.id, null];
+        }
+      })
+    );
+    setQuizStatus(Object.fromEntries(entries));
   }
 
   useEffect(() => {
@@ -64,6 +82,12 @@ export default function CoursePlayer() {
 
   function selectLesson(lessonId) {
     setActiveLessonId(lessonId);
+    setActiveQuizModuleId(null);
+    setSidebarOpen(false);
+  }
+
+  function selectQuiz(moduleId) {
+    setActiveQuizModuleId(moduleId);
     setSidebarOpen(false);
   }
 
@@ -142,7 +166,7 @@ export default function CoursePlayer() {
                   {!collapsed && (
                     <ul>
                       {m.lessons.map((l) => {
-                        const active = l.id === activeLessonId;
+                        const active = !activeQuizModuleId && l.id === activeLessonId;
                         return (
                           <li key={l.id}>
                             <button
@@ -166,6 +190,29 @@ export default function CoursePlayer() {
                           </li>
                         );
                       })}
+                      {quizStatus[m.id] && (
+                        <li>
+                          <button
+                            onClick={() => selectQuiz(m.id)}
+                            className={`flex w-full items-start gap-2.5 border-t border-ink-100 px-3 py-2.5 text-left text-sm transition ${
+                              activeQuizModuleId === m.id ? "bg-brand-50 text-brand-700" : "text-ink-600 hover:bg-ink-50"
+                            }`}
+                          >
+                            <span className="mt-0.5 flex-shrink-0">
+                              {quizStatus[m.id].passed ? (
+                                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success-600 text-[9px] text-white">✓</span>
+                              ) : (
+                                <span className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-ink-200 text-[9px]">
+                                  {quizStatus[m.id].lessons_complete ? "" : "🔒"}
+                                </span>
+                              )}
+                            </span>
+                            <span className={`min-w-0 flex-1 truncate ${activeQuizModuleId === m.id ? "font-semibold" : ""}`}>
+                              📝 Module Quiz
+                            </span>
+                          </button>
+                        </li>
+                      )}
                     </ul>
                   )}
                 </div>
@@ -177,9 +224,27 @@ export default function CoursePlayer() {
           <div className="fixed inset-0 z-20 bg-ink-900/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
         )}
 
-        {/* Active lesson */}
+        {/* Active lesson / module quiz */}
         <div className="min-w-0 flex-1 overflow-y-auto">
-          {!activeLesson ? (
+          {activeQuizModuleId ? (
+            <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
+              <div className="text-xs font-semibold uppercase tracking-wide text-brand-600">
+                {course.modules.find((m) => m.id === activeQuizModuleId)?.title}
+              </div>
+              <h1 className="mt-1 font-display text-xl font-bold text-ink-900 sm:text-2xl">📝 Module Quiz</h1>
+              <div className="mt-5">
+                <ModuleQuizPanel
+                  moduleId={activeQuizModuleId}
+                  onPassed={(res) => {
+                    if (res.certificate_issued) {
+                      setCelebration("🎓 Course complete and assignment approved — your certificate is ready! Check Certificates.");
+                    }
+                    load();
+                  }}
+                />
+              </div>
+            </div>
+          ) : !activeLesson ? (
             <div className="p-8 text-sm text-ink-500">This course doesn't have any lessons yet.</div>
           ) : (
             <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
