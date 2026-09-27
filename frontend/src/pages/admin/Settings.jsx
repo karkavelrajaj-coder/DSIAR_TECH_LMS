@@ -100,9 +100,18 @@ export default function Settings() {
       confirmLabel: "Reset",
     });
     if (!ok) return;
-    const res = await api.patch("/settings", { [field]: "" });
-    setData(res.data);
-    setNotice(`${label} reset to the Render default.`);
+    setError("");
+    setNotice("");
+    try {
+      // null (not "") so this works for the numeric jwt_expire_minutes
+      // field too — an empty string fails FastAPI's int validation.
+      const res = await api.patch("/settings", { [field]: null });
+      setData(res.data);
+      setForm((prev) => ({ ...prev, jwt_expire_minutes: String(res.data.jwt_expire_minutes) }));
+      setNotice(`${label} reset to the Render default.`);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   if (!data) return null;
