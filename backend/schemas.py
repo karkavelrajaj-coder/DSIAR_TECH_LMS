@@ -38,6 +38,28 @@ class SetTimezoneRequest(BaseModel):
     timezone: str
 
 
+# --- Admin settings (Digital Samba credentials, session length) -----------
+
+class SettingsOut(BaseModel):
+    digitalsamba_developer_key: Optional[str] = None
+    digitalsamba_developer_key_set: bool = False
+    digitalsamba_developer_key_source: str = "env"
+    digitalsamba_team_id: Optional[str] = None
+    digitalsamba_team_id_set: bool = False
+    digitalsamba_team_id_source: str = "env"
+    jwt_expire_minutes: int
+    jwt_expire_minutes_source: str = "env"
+
+
+class SettingsUpdate(BaseModel):
+    # Any field left out of the request body is left untouched. Sending an
+    # empty string clears that override and falls back to the Render env
+    # var again (see runtime_settings.py).
+    digitalsamba_developer_key: Optional[str] = None
+    digitalsamba_team_id: Optional[str] = None
+    jwt_expire_minutes: Optional[int] = Field(default=None, ge=5, le=43200)
+
+
 # --- Courses --------------------------------------------------------------
 
 class CreateCourseRequest(BaseModel):

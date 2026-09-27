@@ -6,13 +6,16 @@ from datetime import datetime
 
 import requests
 
-from config import settings
+from runtime_settings import get_setting
 
 API_BASE = "https://api.digitalsamba.com/api/v1"
 
 
 def _auth():
-    return (settings.DIGITALSAMBA_TEAM_ID, settings.DIGITALSAMBA_DEVELOPER_KEY)
+    # Reads the admin's saved override from the database when there is one,
+    # else falls back to the DIGITALSAMBA_TEAM_ID / DIGITALSAMBA_DEVELOPER_KEY
+    # Render env vars — see runtime_settings.py.
+    return (get_setting("digitalsamba_team_id"), get_setting("digitalsamba_developer_key"))
 
 
 def _raise_with_body(resp: requests.Response):

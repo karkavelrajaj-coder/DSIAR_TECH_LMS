@@ -16,7 +16,10 @@ const instructorLinks = [
   { to: "/admin/live-sessions", label: "Manage Live Sessions", icon: "🗓️" },
 ];
 
-const adminOnlyLinks = [{ to: "/admin/users", label: "Manage Users", icon: "👥" }];
+const adminOnlyLinks = [
+  { to: "/admin/users", label: "Manage Users", icon: "👥" },
+  { to: "/admin/settings", label: "Settings", icon: "⚙️" },
+];
 
 const roleLabel = { admin: "Administrator", instructor: "Instructor", student: "Student" };
 

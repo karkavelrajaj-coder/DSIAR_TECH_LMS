@@ -22,6 +22,7 @@ from fastapi import Cookie, Depends, Header, HTTPException, Response, status
 
 from config import settings
 from db import users_col
+from runtime_settings import get_setting
 
 ROLES = ["admin", "instructor", "student"]
 
@@ -70,12 +71,16 @@ def seed_first_admin():
 # --- JWT ----------------------------------------------------------------
 
 def create_access_token(user: dict) -> str:
+    # JWT_EXPIRE_MINUTES can be overridden by an admin from the Settings
+    # page (stored in MongoDB) — falls back to the Render env var default
+    # when no override has been saved. See runtime_settings.py.
+    expire_minutes = get_setting("jwt_expire_minutes")
     payload = {
         "sub": user["id"],
         "name": user["name"],
         "email": user["email"],
         "role": user["role"],
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.JWT_EXPIRE_MINUTES),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=expire_minutes),
         "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
@@ -86,13 +91,14 @@ def decode_access_token(token: str) -> dict:
 
 
 def set_auth_cookie(response: Response, token: str) -> None:
+    expire_minutes = get_setting("jwt_expire_minutes")
     response.set_cookie(
         key=settings.COOKIE_NAME,
         value=token,
         httponly=True,
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
-        max_age=settings.JWT_EXPIRE_MINUTES * 60,
+        max_age=expire_minutes * 60,
         path="/",
     )
 

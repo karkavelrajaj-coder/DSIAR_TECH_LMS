@@ -67,6 +67,14 @@ def live_sessions_col():
     return get_db()["live_sessions"]
 
 
+def settings_col():
+    """Single-document collection holding admin-editable operational
+    settings (Digital Samba credentials, JWT session length) — see
+    runtime_settings.py. Everything else stays exclusively in Render env
+    vars."""
+    return get_db()["settings"]
+
+
 def ensure_indexes():
     """Same resilience pattern as the Streamlit app: wrapped in try/except so
     a leftover duplicate can't crash startup."""

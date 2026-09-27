@@ -14,6 +14,7 @@ import ManageCourses from "./pages/admin/ManageCourses";
 import ManageUsers from "./pages/admin/ManageUsers";
 import Grading from "./pages/admin/Grading";
 import ManageLiveSessions from "./pages/admin/ManageLiveSessions";
+import Settings from "./pages/admin/Settings";
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -48,6 +49,7 @@ export default function App() {
 
               <Route element={<ProtectedRoute roles={["admin"]} />}>
                 <Route path="/admin/users" element={<ManageUsers />} />
+                <Route path="/admin/settings" element={<Settings />} />
               </Route>
             </Route>
           </Route>

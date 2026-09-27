@@ -19,7 +19,7 @@ from config import settings
 from db import ensure_indexes
 from security import seed_first_admin
 
-from modules import assignments, auth, certificates, courses, enrollments, live_sessions, users
+from modules import assignments, auth, certificates, courses, enrollments, live_sessions, settings as settings_module, users
 
 
 @asynccontextmanager
@@ -46,6 +46,7 @@ app.include_router(enrollments.router)
 app.include_router(assignments.router)
 app.include_router(certificates.router)
 app.include_router(live_sessions.router)
+app.include_router(settings_module.router)
 
 
 @app.get("/api/health")
