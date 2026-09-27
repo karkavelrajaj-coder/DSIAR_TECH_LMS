@@ -197,6 +197,54 @@ export function Select(props) {
   return <select className={inputBase} {...props} />;
 }
 
+const URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/g;
+
+/**
+ * Renders free-text the user typed (an assignment description, a session
+ * description, a pasted GitHub/Colab/Drive submission link, ...) the way
+ * they actually typed it: line breaks and blank-line paragraphs preserved
+ * (a plain `<p>{text}</p>` collapses all of that per normal HTML
+ * whitespace rules), and any http(s)/www. URL turned into a real clickable
+ * link instead of inert text. Used everywhere free text like this is
+ * displayed, so the whole app is consistent.
+ */
+export function RichText({ text, className = "", as: As = "div" }) {
+  if (!text) return <As className={`whitespace-pre-wrap break-words ${className}`} />;
+  const nodes = [];
+  let lastIndex = 0;
+  let match;
+  const re = new RegExp(URL_PATTERN);
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
+    let url = match[0];
+    // Don't swallow trailing punctuation that's almost certainly not part
+    // of the URL itself (end of sentence, closing paren, etc).
+    const trailingMatch = url.match(/[),.;:!?'"]+$/);
+    let trailing = "";
+    if (trailingMatch) {
+      trailing = trailingMatch[0];
+      url = url.slice(0, -trailing.length);
+    }
+    const href = url.startsWith("www.") ? `https://${url}` : url;
+    nodes.push(
+      <a
+        key={match.index}
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="font-medium text-brand-600 underline decoration-brand-200 underline-offset-2 hover:text-brand-700"
+      >
+        {url}
+      </a>
+    );
+    if (trailing) nodes.push(trailing);
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+
+  return <As className={`whitespace-pre-wrap break-words ${className}`}>{nodes}</As>;
+}
+
 export function Modal({ open, onClose, title, children, wide = false }) {
   useEffect(() => {
     if (!open) return;
