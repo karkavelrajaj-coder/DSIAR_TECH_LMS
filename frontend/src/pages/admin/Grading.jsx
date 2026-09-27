@@ -10,6 +10,7 @@ import {
   Input,
   Modal,
   PageHeader,
+  RichText,
   Select,
   Textarea,
 } from "../../components/ui";
@@ -131,7 +132,7 @@ export default function Grading() {
                 </IconButton>
               </div>
             </div>
-            <p className="mt-2 text-sm text-ink-600">{a.description}</p>
+            <RichText text={a.description} className="mt-2 text-sm text-ink-600" />
 
             <div className="mt-4 space-y-3">
               {(submissionsByAssignment[a.id] || []).length === 0 && (
@@ -145,7 +146,9 @@ export default function Grading() {
                     </div>
                     <Badge variant={statusVariant[s.status] || "warning"}>{s.status}</Badge>
                   </div>
-                  <div className="mt-1 text-sm text-ink-600">Submission: {s.link_or_text}</div>
+                  <div className="mt-1 text-sm text-ink-600">
+                    Submission: <RichText as="span" text={s.link_or_text} />
+                  </div>
                   <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <Input
                       type="number"
