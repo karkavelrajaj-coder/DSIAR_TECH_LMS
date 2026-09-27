@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { Badge, Button, Card, EmptyState, Field, LoadingScreen, PageHeader, Select } from "../components/ui";
+import { Badge, Button, Card, EmptyState, Field, LoadingScreen, PageHeader, RichText, Select } from "../components/ui";
 
 const statusBadge = {
   upcoming: { variant: "brand", label: "Upcoming" },
@@ -99,7 +99,7 @@ export default function LiveSessions() {
                   </div>
                 </div>
               </div>
-              {s.description && <p className="mt-2 text-sm text-ink-600">{s.description}</p>}
+              {s.description && <RichText text={s.description} className="mt-2 text-sm text-ink-600" />}
 
               {!joined[s.id] ? (
                 s.can_join ? (
