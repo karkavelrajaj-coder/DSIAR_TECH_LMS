@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 
-from db import courses_col, enrollments_col, users_col
+from db import certificates_col, courses_col, enrollments_col, users_col
 from schemas import CreateEnrollmentRequest
 from security import get_current_user, require_roles
 from serializers import enrollment_out
@@ -81,7 +81,14 @@ def self_enroll_preview(course_id: str, user: dict = Depends(require_roles("admi
 
 @router.delete("/{enrollment_id}")
 def delete_enrollment(enrollment_id: str, user: dict = Depends(require_roles("admin"))):
-    result = enrollments_col().delete_one({"_id": ObjectId(enrollment_id)})
-    if result.deleted_count == 0:
+    # Look the enrollment up first (rather than delete_one blind) so we know
+    # which user/course to also revoke the certificate for — the confirm
+    # dialog on the frontend promises the student loses "certificate
+    # eligibility" too, so leaving an already-issued certificate downloadable
+    # after access is pulled would contradict that.
+    enrollment = enrollments_col().find_one({"_id": ObjectId(enrollment_id)})
+    if not enrollment:
         raise HTTPException(status_code=404, detail="Enrollment not found.")
+    enrollments_col().delete_one({"_id": enrollment["_id"]})
+    certificates_col().delete_one({"user_id": enrollment["user_id"], "course_id": enrollment["course_id"]})
     return {"ok": True}
