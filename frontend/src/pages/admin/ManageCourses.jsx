@@ -157,7 +157,12 @@ export default function ManageCourses() {
                     {c.category && <Badge variant="brand">{c.category}</Badge>}
                     {c.is_free && <Badge variant="success">Free</Badge>}
                   </div>
-                  {c.instructor_id && (
+                  {/* The instructor roster is only ever fetched for admins (the
+                      /users/instructors endpoint is admin-only) — an instructor
+                      only ever sees their OWN assigned courses here anyway, so
+                      this line would just show "—" for them. Show it for admin
+                      only, where the lookup actually has data. */}
+                  {user.role === "admin" && c.instructor_id && (
                     <div className="mt-0.5 text-xs text-ink-500">Instructor: {instructorName(c.instructor_id) || "—"}</div>
                   )}
                 </div>
