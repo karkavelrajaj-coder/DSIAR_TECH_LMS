@@ -59,11 +59,14 @@ def lesson_out(doc: dict) -> dict:
 
 
 def enrollment_out(doc: dict) -> dict:
+    from utils.tracks import normalize_track  # local import to avoid a top-level circularity
+
     return {
         "id": str(doc["_id"]),
         "user_id": doc.get("user_id"),
         "course_id": doc.get("course_id"),
         "enrolled_at": _iso(doc.get("enrolled_at")),
+        "track": normalize_track(doc.get("track")),
     }
 
 
