@@ -21,6 +21,7 @@ from db import (
     quiz_attempts_col,
     quizzes_col,
 )
+from utils.tracks import display_title, normalize_track
 from schemas import (
     CreateCourseRequest,
     CreateLessonRequest,
@@ -123,10 +124,12 @@ def course_detail(course_id: str, user: dict = Depends(get_current_user)):
     """Full course content (modules + lessons + per-lesson completion),
     gated exactly like course_player.py: students must be enrolled."""
     course = _get_course_or_404(course_id)
-    actually_enrolled = bool(enrollments_col().find_one({"user_id": user["id"], "course_id": course_id}))
+    enrollment = enrollments_col().find_one({"user_id": user["id"], "course_id": course_id})
+    actually_enrolled = bool(enrollment)
     has_access = _has_course_access(user, course, actually_enrolled)
     if not has_access:
         raise HTTPException(status_code=403, detail="You don't have access to this course.")
+    track = normalize_track(enrollment.get("track")) if enrollment else "course"
 
     modules = list(modules_col().find({"course_id": course_id}).sort("order", 1))
     completed_lesson_ids = {
@@ -146,6 +149,8 @@ def course_detail(course_id: str, user: dict = Depends(get_current_user)):
         modules_out.append(mp)
 
     payload = course_out(course)
+    payload["title"] = display_title(course["title"], track)
+    payload["track"] = track
     payload["is_enrolled"] = has_access
     payload["modules"] = modules_out
     return payload
@@ -322,7 +327,10 @@ def my_learning(user: dict = Depends(get_current_user)):
             if has_pass:
                 done += 1
 
+        track = normalize_track(e.get("track"))
         item = course_out(course)
+        item["title"] = display_title(course["title"], track)
+        item["track"] = track
         item["lessons_total"] = total
         item["lessons_completed"] = done
         item["progress_pct"] = (done / total) if total else 0
