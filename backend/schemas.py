@@ -127,6 +127,11 @@ class UpdateLessonRequest(BaseModel):
 class CreateEnrollmentRequest(BaseModel):
     user_id: str
     course_id: str
+    track: str = "course"  # course | internship | diploma | nano_degree
+
+
+class UpdateEnrollmentTrackRequest(BaseModel):
+    track: str
 
 
 # --- Assignments / Submissions ---------------------------------------------
