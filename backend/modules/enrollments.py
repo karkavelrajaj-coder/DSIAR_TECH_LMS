@@ -11,9 +11,10 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
 
 from db import certificates_col, courses_col, enrollments_col, users_col
-from schemas import CreateEnrollmentRequest
+from schemas import CreateEnrollmentRequest, UpdateEnrollmentTrackRequest
 from security import get_current_user, require_roles
 from serializers import enrollment_out
+from utils.tracks import VALID_TRACKS
 
 router = APIRouter(prefix="/api/enrollments", tags=["enrollments"])
 
@@ -38,6 +39,8 @@ def list_enrollments(user: dict = Depends(get_current_user)):
 
 @router.post("")
 def create_enrollment(body: CreateEnrollmentRequest, user: dict = Depends(require_roles("admin"))):
+    if body.track not in VALID_TRACKS:
+        raise HTTPException(status_code=400, detail="Invalid track.")
     existing = enrollments_col().find_one({"user_id": body.user_id, "course_id": body.course_id})
     if existing:
         raise HTTPException(status_code=409, detail="This student is already enrolled in that course.")
@@ -45,10 +48,31 @@ def create_enrollment(body: CreateEnrollmentRequest, user: dict = Depends(requir
         "user_id": body.user_id,
         "course_id": body.course_id,
         "enrolled_at": datetime.now(timezone.utc),
+        "track": body.track,
     }
     result = enrollments_col().insert_one(doc)
     doc["_id"] = result.inserted_id
     return enrollment_out(doc)
+
+
+@router.patch("/{enrollment_id}/track")
+def update_enrollment_track(enrollment_id: str, body: UpdateEnrollmentTrackRequest, user: dict = Depends(require_roles("admin"))):
+    """Track was originally meant to be fixed at enrollment time, but admins
+    need a way to correct a wrong pick (or move a student between Course /
+    Internship / Diploma / Nano Degree) without deleting and re-creating the
+    enrollment — which would also wipe their certificate and progress. This
+    only ever touches the `track` field; nothing else about the enrollment,
+    the student's progress, or an already-issued certificate row changes.
+    Certificates are generated on the fly from the enrollment's current
+    track, so the very next time the certificate is viewed/downloaded it
+    reflects the new track automatically."""
+    if body.track not in VALID_TRACKS:
+        raise HTTPException(status_code=400, detail="Invalid track.")
+    enrollment = enrollments_col().find_one({"_id": ObjectId(enrollment_id)})
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found.")
+    enrollments_col().update_one({"_id": enrollment["_id"]}, {"$set": {"track": body.track}})
+    return enrollment_out(enrollments_col().find_one({"_id": enrollment["_id"]}))
 
 
 @router.post("/preview/{course_id}")
