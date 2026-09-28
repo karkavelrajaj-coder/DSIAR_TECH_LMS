@@ -30,6 +30,7 @@ from schemas import (
 from security import get_current_user, require_roles
 from serializers import assignment_out, submission_out
 from utils.certificates import course_modules_complete, ensure_certificate
+from utils.tracks import display_title, normalize_track
 
 router = APIRouter(prefix="/api", tags=["assignments"])
 
@@ -152,14 +153,18 @@ def grade_submission(submission_id: str, body: GradeSubmissionRequest, user: dic
 
 @router.get("/my/assignments")
 def my_assignments(user: dict = Depends(get_current_user)):
-    enrolled_course_ids = [e["course_id"] for e in enrollments_col().find({"user_id": user["id"]})]
-    if not enrolled_course_ids:
+    tracks_by_course = {
+        e["course_id"]: normalize_track(e.get("track"))
+        for e in enrollments_col().find({"user_id": user["id"]})
+    }
+    if not tracks_by_course:
         return []
 
     out = []
-    for a in assignments_col().find({"course_id": {"$in": enrolled_course_ids}}):
+    for a in assignments_col().find({"course_id": {"$in": list(tracks_by_course.keys())}}):
         course = courses_col().find_one({"_id": _oid(a["course_id"])})
         course_title = course["title"] if course else "Unknown"
+        course_title = display_title(course_title, tracks_by_course.get(a["course_id"]))
 
         modules_done = course_modules_complete(user["id"], a["course_id"])
         item = assignment_out(a)
