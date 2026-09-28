@@ -5,13 +5,22 @@ import { useConfirm } from "../../context/ConfirmContext";
 
 const roleVariant = { admin: "brand", instructor: "success", student: "neutral" };
 
+const TRACKS = [
+  { value: "course", label: "Course" },
+  { value: "internship", label: "Internship" },
+  { value: "diploma", label: "Diploma" },
+  { value: "nano_degree", label: "Nano Degree" },
+];
+const trackLabel = (t) => TRACKS.find((x) => x.value === t)?.label || "Course";
+const trackVariant = { course: "brand", internship: "success", diploma: "warning", nano_degree: "neutral" };
+
 export default function ManageUsers() {
   const confirm = useConfirm();
   const [users, setUsers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [enrollments, setEnrollments] = useState([]);
   const [newAccount, setNewAccount] = useState({ name: "", email: "", password: "", role: "student" });
-  const [enrollForm, setEnrollForm] = useState({ user_id: "", course_id: "" });
+  const [enrollForm, setEnrollForm] = useState({ user_id: "", course_id: "", track: "course" });
   const [error, setError] = useState("");
 
   async function load() {
@@ -51,7 +60,25 @@ export default function ManageUsers() {
     if (!enrollForm.user_id || !enrollForm.course_id) return;
     try {
       await api.post("/enrollments", enrollForm);
-      setEnrollForm({ user_id: "", course_id: "" });
+      setEnrollForm({ user_id: "", course_id: "", track: "course" });
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function changeTrack(enrollment, track) {
+    if (track === enrollment.track) return;
+    const ok = await confirm({
+      title: "Change this student's track?",
+      message: `${enrollment.student_name}'s "${enrollment.course_title}" enrollment will change from ${trackLabel(enrollment.track)} to ${trackLabel(track)}. This relabels their dashboard and certificate — it doesn't reset progress, and an already-issued certificate updates the next time it's viewed or downloaded.`,
+      confirmLabel: `Change to ${trackLabel(track)}`,
+      variant: "brand",
+    });
+    if (!ok) return;
+    setError("");
+    try {
+      await api.patch(`/enrollments/${enrollment.id}/track`, { track });
       load();
     } catch (err) {
       setError(err.message);
@@ -162,6 +189,15 @@ export default function ManageUsers() {
               ))}
             </Select>
           </Field>
+          <Field label="Track">
+            <Select value={enrollForm.track} onChange={(e) => setEnrollForm({ ...enrollForm, track: e.target.value })}>
+              {TRACKS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Button type="submit" className="w-full">Enroll student</Button>
 
           <div className="pt-2">
@@ -179,8 +215,22 @@ export default function ManageUsers() {
                       <td className="px-3 py-2">
                         <div className="text-ink-800">{e.student_name}</div>
                         <div className="text-xs text-ink-400">{e.course_title}</div>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <Badge variant={trackVariant[e.track] || "neutral"}>{trackLabel(e.track)}</Badge>
+                          <Select
+                            value={e.track}
+                            onChange={(ev) => changeTrack(e, ev.target.value)}
+                            className="w-auto py-0.5 text-xs"
+                          >
+                            {TRACKS.map((t) => (
+                              <option key={t.value} value={t.value}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2 text-right align-top">
                         <button onClick={() => removeEnrollment(e)} className="text-xs font-medium text-danger-600 hover:underline">
                           Remove
                         </button>
